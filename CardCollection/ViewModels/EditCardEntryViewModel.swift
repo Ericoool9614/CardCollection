@@ -63,7 +63,7 @@ class EditCardEntryViewModel: ObservableObject {
             persistence.updateEntry(entry, with: updated)
             isSaved = true
         } else {
-            errorMessage = "Entry not found"
+            errorMessage = "条目未找到"
         }
     }
 }

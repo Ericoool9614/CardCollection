@@ -17,14 +17,14 @@ struct AddNonPSACardView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Add Raw Card")
+        .navigationTitle("添加裸卡")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button("取消") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { viewModel.saveEntry() }
+                Button("保存") { viewModel.saveEntry() }
                     .disabled(!viewModel.canSave)
                     .fontWeight(.semibold)
             }
@@ -51,27 +51,27 @@ struct AddNonPSACardView: View {
 
     private var nicknameSection: some View {
         Section {
-            TextField("Nickname (optional)", text: $viewModel.nickname)
+            TextField("昵称（可选）", text: $viewModel.nickname)
         } header: {
-            Label("Entry Name", systemImage: "tag")
+            Label("条目名称", systemImage: "tag")
         }
     }
 
     private var cardInfoSection: some View {
         Section {
             if !viewModel.subcards.isEmpty {
-                TextField("Card Name *", text: $viewModel.subcards[0].name)
-                TextField("Set (optional)", text: Binding(
+                TextField("卡名 *", text: $viewModel.subcards[0].name)
+                TextField("系列（可选）", text: Binding(
                     get: { viewModel.subcards[0].set ?? "" },
                     set: { viewModel.subcards[0].set = $0.isEmpty ? nil : $0 }
                 ))
-                TextField("Number (optional)", text: Binding(
+                TextField("编号（可选）", text: Binding(
                     get: { viewModel.subcards[0].number ?? "" },
                     set: { viewModel.subcards[0].number = $0.isEmpty ? nil : $0 }
                 ))
             }
         } header: {
-            Label("Card Info", systemImage: "rectangle.on.rectangle.angled")
+            Label("卡牌信息", systemImage: "rectangle.on.rectangle.angled")
         }
     }
 
@@ -90,7 +90,7 @@ struct AddNonPSACardView: View {
                                 .frame(maxHeight: 200)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                            Button("Remove Image", role: .destructive) {
+                            Button("移除图片", role: .destructive) {
                                 Task { await viewModel.removeLocalImage(at: 0) }
                             }
                             .font(.caption)
@@ -103,57 +103,57 @@ struct AddNonPSACardView: View {
                 }
             }
         } header: {
-            Label("Card Image", systemImage: "photo")
+            Label("卡牌图片", systemImage: "photo")
         }
     }
 
     private var imagePickerButton: some View {
         PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-            Label("Select Photo", systemImage: "plus.circle.fill")
+            Label("选择照片", systemImage: "plus.circle.fill")
         }
     }
 
     private var purchaseSection: some View {
         Section {
-            DatePicker("Purchase Date", selection: $viewModel.purchaseDate, displayedComponents: .date)
+            DatePicker("购买日期", selection: $viewModel.purchaseDate, displayedComponents: .date)
             HStack {
-                Text("Price")
+                Text("价格")
                 Spacer()
-                Text("$").foregroundStyle(.secondary)
+                Text("¥").foregroundStyle(.secondary)
                 TextField("0", value: $viewModel.purchasePrice, format: .number)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
             }
         } header: {
-            Label("Purchase", systemImage: "bag.fill")
+            Label("购买信息", systemImage: "bag.fill")
         }
     }
 
     private var saleSection: some View {
         Section {
-            Toggle("Mark as Sold", isOn: $viewModel.hasSold).tint(.green)
+            Toggle("标记为已出售", isOn: $viewModel.hasSold).tint(.green)
             if viewModel.hasSold {
-                DatePicker("Sell Date", selection: $viewModel.sellDate, displayedComponents: .date)
+                DatePicker("出售日期", selection: $viewModel.sellDate, displayedComponents: .date)
                 HStack {
-                    Text("Price")
+                    Text("价格")
                     Spacer()
-                    Text("$").foregroundStyle(.secondary)
+                    Text("¥").foregroundStyle(.secondary)
                     TextField("0", value: $viewModel.sellPrice, format: .number)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                 }
             }
         } header: {
-            Label("Sale", systemImage: "tag.fill")
+            Label("出售信息", systemImage: "tag.fill")
         }
     }
 
     private var notesSection: some View {
         Section {
-            TextField("Add notes...", text: $viewModel.note, axis: .vertical)
+            TextField("添加备注...", text: $viewModel.note, axis: .vertical)
                 .lineLimit(3...6)
         } header: {
-            Label("Notes", systemImage: "note.text")
+            Label("备注", systemImage: "note.text")
         }
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 
 struct CSVExportService {
     static func export(entries: [CardEntryItem]) -> URL? {
-        var csv = "Nickname,Card Name,Set,Number,Is PSA,Grade,Population,Year,Variety,Purchase Date,Purchase Price,Sell Date,Sell Price,Profit,Notes\n"
+        var csv = "昵称,卡名,系列,编号,是否评级,评级,Pop,年份,变体,购买日期,购买价格(¥),出售日期,出售价格(¥),盈亏(¥),备注,正面图片路径,背面图片路径\n"
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
@@ -13,7 +13,7 @@ struct CSVExportService {
                 let name = escapeCSV(card.name)
                 let set = escapeCSV(card.set ?? "")
                 let number = escapeCSV(card.number ?? "")
-                let isPSA = card.isPSA ? "Yes" : "No"
+                let isPSA = card.isPSA ? "是" : "否"
                 let grade = card.gradeDescription ?? (card.grade.map { "PSA \($0)" } ?? "")
                 let pop = card.population.map { "\($0)" } ?? ""
                 let year = escapeCSV(card.year ?? "")
@@ -24,13 +24,15 @@ struct CSVExportService {
                 let sellPrice = entry.sellPrice.map { String(format: "%.2f", $0) } ?? ""
                 let profit = entry.profit.map { String(format: "%.2f", $0) } ?? ""
                 let notes = escapeCSV(entry.note ?? "")
+                let frontImage = escapeCSV(card.psaImageFrontPath ?? card.localImagePath ?? "")
+                let backImage = escapeCSV(card.psaImageBackPath ?? "")
 
-                csv += "\(nickname),\(name),\(set),\(number),\(isPSA),\(grade),\(pop),\(year),\(variety),\(purchaseDate),\(purchasePrice),\(sellDate),\(sellPrice),\(profit),\(notes)\n"
+                csv += "\(nickname),\(name),\(set),\(number),\(isPSA),\(grade),\(pop),\(year),\(variety),\(purchaseDate),\(purchasePrice),\(sellDate),\(sellPrice),\(profit),\(notes),\(frontImage),\(backImage)\n"
             }
         }
 
         let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "CardCollection_Export_\(formatDateForFilename(Date())).csv"
+        let fileName = "卡牌收藏_导出_\(formatDateForFilename(Date())).csv"
         let fileURL = tempDir.appendingPathComponent(fileName)
 
         do {

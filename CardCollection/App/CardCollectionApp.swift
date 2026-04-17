@@ -2,38 +2,27 @@ import SwiftUI
 
 @main
 struct CardCollectionApp: App {
-    let persistenceController = PersistenceController.shared
+    @StateObject private var persistence = PersistenceController.shared
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .tint(.orange)
+            TabView {
+                NavigationStack {
+                    DashboardView()
+                }
+                .tabItem {
+                    Label("概览", systemImage: "chart.pie.fill")
+                }
+
+                NavigationStack {
+                    CardListView()
+                }
+                .tabItem {
+                    Label("我的卡牌", systemImage: "rectangle.on.rectangle.angled")
+                }
+            }
+            .environment(\.managedObjectContext, persistence.container.viewContext)
+            .tint(.orange)
         }
-    }
-}
-
-struct ContentView: View {
-    @State private var selectedTab = 0
-
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                DashboardView()
-            }
-            .tabItem {
-                Label("Dashboard", systemImage: "chart.pie.fill")
-            }
-            .tag(0)
-
-            NavigationStack {
-                CardListView()
-            }
-            .tabItem {
-                Label("Cards", systemImage: "rectangle.on.rectangle.angled")
-            }
-            .tag(1)
-        }
-        .tint(.orange)
     }
 }

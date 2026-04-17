@@ -14,11 +14,12 @@ struct CardEntryItem: Identifiable, Hashable, Sendable {
     var note: String?
     var createdAt: Date
     var updatedAt: Date
+    var askingPrice: Double?
 
     var displayName: String {
         if let nick = nickname, !nick.isEmpty { return nick }
         if let first = subcards.first { return first.name }
-        return "Untitled"
+        return "未命名"
     }
 
     var isSold: Bool { sellDate != nil }
@@ -29,6 +30,12 @@ struct CardEntryItem: Identifiable, Hashable, Sendable {
         return nil
     }
 
+    var profitDisplay: String? {
+        guard let profit = profit else { return nil }
+        let sign = profit >= 0 ? "+" : "-"
+        return "\(sign)¥\(String(format: "%.2f", abs(profit)))"
+    }
+
     var cardCount: Int { subcards.count }
 
     var hasPSA: Bool { subcards.contains { $0.isPSA } }
@@ -36,6 +43,11 @@ struct CardEntryItem: Identifiable, Hashable, Sendable {
     var allPSA: Bool { subcards.allSatisfy { $0.isPSA } }
 
     var primaryCard: SubCardItem? { subcards.first }
+
+    var maxPopulation: Int? {
+        let pops = subcards.compactMap { $0.population }
+        return pops.isEmpty ? nil : pops.max()
+    }
 
     var frontImages: [String] {
         subcards.compactMap { card in
@@ -74,7 +86,7 @@ struct SubCardItem: Identifiable, Hashable, Sendable {
     var gradeDisplay: String {
         if isPSA, let desc = gradeDescription, !desc.isEmpty { return desc }
         if isPSA, let g = grade { return "PSA \(g)" }
-        return "Raw"
+        return "裸卡"
     }
 
     var hasFrontImage: Bool {
@@ -91,5 +103,19 @@ struct SubCardItem: Identifiable, Hashable, Sendable {
         guard let rawPath = psaImageFrontPath ?? localImagePath, !rawPath.isEmpty else { return nil }
         let resolved = ImageStorageService.resolvePath(rawPath)
         return FileManager.default.fileExists(atPath: resolved) ? resolved : nil
+    }
+
+    var allImagePaths: [String] {
+        var paths: [String] = []
+        if let frontPath = psaImageFrontPath, !frontPath.isEmpty {
+            paths.append(ImageStorageService.resolvePath(frontPath))
+        }
+        if let backPath = psaImageBackPath, !backPath.isEmpty {
+            paths.append(ImageStorageService.resolvePath(backPath))
+        }
+        if !isPSA, let localPath = localImagePath, !localPath.isEmpty {
+            paths.append(ImageStorageService.resolvePath(localPath))
+        }
+        return paths
     }
 }

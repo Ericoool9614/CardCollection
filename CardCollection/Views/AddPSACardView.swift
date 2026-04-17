@@ -3,269 +3,230 @@ import SwiftUI
 struct AddPSACardView: View {
     @StateObject private var viewModel = AddCardEntryViewModel()
     @Environment(\.dismiss) private var dismiss
-
-    let initialCertNumber: String?
-    let autoFetchOnAppear: Bool
+    @State private var initialCertNumber: String?
+    @State private var autoFetch: Bool = false
 
     init(certNumber: String? = nil, autoFetch: Bool = false) {
-        self.initialCertNumber = certNumber
-        self.autoFetchOnAppear = autoFetch
+        _initialCertNumber = State(initialValue: certNumber)
+        _autoFetch = State(initialValue: autoFetch)
     }
 
     var body: some View {
         Form {
             nicknameSection
-            cardsTabSection
+            cardsSection
+            addCardButton
             purchaseSection
             saleSection
             notesSection
         }
         .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Add PSA Cards")
+        .navigationTitle("添加评级卡")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button("取消") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { viewModel.saveEntry() }
+                Button("保存") { viewModel.saveEntry() }
                     .disabled(!viewModel.canSave)
                     .fontWeight(.semibold)
             }
+        }
+        .alert("提示", isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button("确定") { viewModel.errorMessage = nil }
+        } message: {
+            Text(viewModel.errorMessage ?? "")
+        }
+        .onChange(of: viewModel.isSaved) { _, saved in
+            if saved { dismiss() }
         }
         .onAppear {
             if viewModel.subcards.isEmpty {
                 viewModel.addSubcard(isPSA: true)
             }
-            if let cert = initialCertNumber, !cert.isEmpty {
-                if !viewModel.subcards.isEmpty {
-                    viewModel.subcards[0].psaCertNumber = cert
-                }
-                if autoFetchOnAppear {
-                    Task { await viewModel.fetchPSAData(for: 0) }
-                }
+            if let cert = initialCertNumber, autoFetch {
+                viewModel.setSubcardCertNumber(at: 0, cert)
+                Task { await viewModel.fetchPSACard(at: 0) }
+                autoFetch = false
             }
-        }
-        .onChange(of: viewModel.isSaved) { _, saved in
-            if saved { dismiss() }
-        }
-        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK") { viewModel.errorMessage = nil }
-        } message: {
-            Text(viewModel.errorMessage ?? "")
         }
     }
 
     private var nicknameSection: some View {
         Section {
-            TextField("Nickname (optional)", text: $viewModel.nickname)
+            TextField("昵称（可选）", text: $viewModel.nickname)
         } header: {
-            Label("Entry Name", systemImage: "tag")
+            Label("条目名称", systemImage: "tag")
         }
     }
 
-    private var cardsTabSection: some View {
+    private var cardsSection: some View {
         Section {
             if viewModel.subcards.isEmpty {
-                Text("No cards added")
-                    .foregroundStyle(.secondary)
+                Text("暂无卡牌").foregroundStyle(.secondary)
             } else {
-                TabView(selection: $viewModel.selectedTab) {
-                    ForEach(Array(viewModel.subcards.indices), id: \.self) { index in
-                        SubCardEditView(
-                            viewModel: viewModel,
-                            index: index,
-                            onRemove: index > 0 || viewModel.subcards.count > 1 ? {
-                                viewModel.removeSubcard(at: index)
-                            } : nil
-                        )
-                        .tag(index)
-                    }
-                }
-                .frame(height: 320)
-                .tabViewStyle(.page(indexDisplayMode: .always))
-            }
-
-            HStack {
-                Button {
-                    viewModel.addSubcard(isPSA: true)
-                } label: {
-                    Label("Add Card", systemImage: "plus.circle.fill")
+                ForEach(viewModel.subcards) { card in
+                    subcardRow(card: card)
                 }
             }
         } header: {
-            Label("Cards (\(viewModel.subcards.count))", systemImage: "rectangle.on.rectangle.angled")
+            Label("卡牌列表", systemImage: "rectangle.on.rectangle.angled")
+        }
+    }
+
+    @ViewBuilder
+    private func subcardRow(card: SubCardItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(card.name.isEmpty ? "卡牌 \(viewModel.indexOfCard(card) + 1)" : card.name)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+
+                Spacer()
+
+                if viewModel.subcards.count > 1 {
+                    Button(role: .destructive) {
+                        viewModel.removeSubcard(id: card.id)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack {
+                TextField("PSA 认证编号", text: Binding(
+                    get: { card.psaCertNumber ?? "" },
+                    set: { viewModel.setSubcardCertNumber(id: card.id, $0) }
+                ))
+                .keyboardType(.numberPad)
+
+                Button {
+                    Task { await viewModel.fetchPSACard(id: card.id) }
+                } label: {
+                    if viewModel.isFetchingPSA {
+                        ProgressView()
+                    } else {
+                        Text("查询").font(.caption.weight(.bold))
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(card.psaCertNumber?.isEmpty ?? true || viewModel.isFetchingPSA)
+            }
+
+            if !card.name.isEmpty {
+                cardDetailPreview(card: card)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func cardDetailPreview(card: SubCardItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                if let frontPath = card.psaImageFrontPath, !frontPath.isEmpty {
+                    let resolved = ImageStorageService.resolvePath(frontPath)
+                    if FileManager.default.fileExists(atPath: resolved),
+                       let uiImage = UIImage(contentsOfFile: resolved) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 84)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                    }
+                }
+
+                if let backPath = card.psaImageBackPath, !backPath.isEmpty {
+                    let resolved = ImageStorageService.resolvePath(backPath)
+                    if FileManager.default.fileExists(atPath: resolved),
+                       let uiImage = UIImage(contentsOfFile: resolved) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 84)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                    }
+                }
+
+                if card.psaImageFrontPath == nil && card.psaImageBackPath == nil {
+                    Spacer()
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                LabeledContent("卡名", value: card.name)
+                if let set = card.set { LabeledContent("系列", value: set) }
+                if let number = card.number { LabeledContent("编号", value: number) }
+                if let year = card.year { LabeledContent("年份", value: year) }
+                if let grade = card.grade { LabeledContent("评级", value: "PSA \(grade)") }
+                if let desc = card.gradeDescription { LabeledContent("评级描述", value: desc) }
+                if let pop = card.population, pop > 0 { LabeledContent("Pop", value: "\(pop)") }
+                if let variety = card.variety { LabeledContent("变体", value: variety) }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var addCardButton: some View {
+        Section {
+            Button {
+                viewModel.addSubcard(isPSA: true)
+            } label: {
+                Label("添加更多卡牌", systemImage: "plus.circle.fill")
+                    .foregroundStyle(.orange)
+            }
         }
     }
 
     private var purchaseSection: some View {
         Section {
-            DatePicker("Purchase Date", selection: $viewModel.purchaseDate, displayedComponents: .date)
+            DatePicker("购买日期", selection: $viewModel.purchaseDate, displayedComponents: .date)
             HStack {
-                Text("Total Price")
+                Text("价格")
                 Spacer()
-                Text("$").foregroundStyle(.secondary)
+                Text("¥").foregroundStyle(.secondary)
                 TextField("0", value: $viewModel.purchasePrice, format: .number)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
             }
         } header: {
-            Label("Purchase", systemImage: "bag.fill")
+            Label("购买信息", systemImage: "bag.fill")
         }
     }
 
     private var saleSection: some View {
         Section {
-            Toggle("Mark as Sold", isOn: $viewModel.hasSold).tint(.green)
+            Toggle("标记为已出售", isOn: $viewModel.hasSold).tint(.green)
             if viewModel.hasSold {
-                DatePicker("Sell Date", selection: $viewModel.sellDate, displayedComponents: .date)
+                DatePicker("出售日期", selection: $viewModel.sellDate, displayedComponents: .date)
                 HStack {
-                    Text("Total Price")
+                    Text("价格")
                     Spacer()
-                    Text("$").foregroundStyle(.secondary)
+                    Text("¥").foregroundStyle(.secondary)
                     TextField("0", value: $viewModel.sellPrice, format: .number)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                 }
             }
         } header: {
-            Label("Sale", systemImage: "tag.fill")
+            Label("出售信息", systemImage: "tag.fill")
         }
     }
 
     private var notesSection: some View {
         Section {
-            TextField("Add notes...", text: $viewModel.note, axis: .vertical)
+            TextField("添加备注...", text: $viewModel.note, axis: .vertical)
                 .lineLimit(3...6)
         } header: {
-            Label("Notes", systemImage: "note.text")
+            Label("备注", systemImage: "note.text")
         }
-    }
-}
-
-struct SubCardEditView: View {
-    @ObservedObject var viewModel: AddCardEntryViewModel
-    let index: Int
-    let onRemove: (() -> Void)?
-    @State private var isFetching = false
-
-    private var card: SubCardItem {
-        guard index < viewModel.subcards.count else { return SubCardItem.placeholder }
-        return viewModel.subcards[index]
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                certRow
-                cardInfoRow
-                psaDetailsRow
-            }
-            .padding(.horizontal, 16)
-        }
-    }
-
-    private var certRow: some View {
-        VStack(spacing: 8) {
-            HStack {
-                TextField("PSA Cert Number", text: Binding(
-                    get: { card.psaCertNumber ?? "" },
-                    set: { viewModel.setSubcardCertNumber(at: index, $0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-
-                Button {
-                    isFetching = true
-                    Task {
-                        await viewModel.fetchPSAData(for: index)
-                        isFetching = false
-                    }
-                } label: {
-                    if isFetching {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Text("Fetch").fontWeight(.semibold)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .disabled((card.psaCertNumber ?? "").isEmpty || isFetching)
-            }
-
-            if let onRemove = onRemove {
-                Button(role: .destructive) {
-                    onRemove()
-                } label: {
-                    Label("Remove Card", systemImage: "trash")
-                        .font(.caption)
-                }
-            }
-        }
-    }
-
-    private var cardInfoRow: some View {
-        Group {
-            TextField("Card Name *", text: Binding(
-                get: { card.name },
-                set: { viewModel.setSubcardName(at: index, $0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-            TextField("Set", text: Binding(
-                get: { card.set ?? "" },
-                set: { viewModel.setSubcardSet(at: index, $0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-            TextField("Number", text: Binding(
-                get: { card.number ?? "" },
-                set: { viewModel.setSubcardNumber(at: index, $0) }
-            ))
-            .textFieldStyle(.roundedBorder)
-        }
-    }
-
-    private var psaDetailsRow: some View {
-        Group {
-            if card.grade != nil || card.gradeDescription != nil {
-                HStack {
-                    Text("Grade").font(.subheadline).foregroundStyle(.secondary)
-                    Spacer()
-                    Text(card.gradeDisplay).font(.subheadline.weight(.medium))
-                }
-            }
-            if let pop = card.population, pop > 0 {
-                HStack {
-                    Text("Population").font(.subheadline).foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(pop)").font(.subheadline.weight(.medium))
-                }
-            }
-            if card.psaImageFrontPath != nil {
-                HStack {
-                    Text("Front Image").font(.subheadline).foregroundStyle(.secondary)
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                }
-            }
-            if card.psaImageBackPath != nil {
-                HStack {
-                    Text("Back Image").font(.subheadline).foregroundStyle(.secondary)
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                }
-            }
-        }
-    }
-}
-
-extension SubCardItem {
-    static var placeholder: SubCardItem {
-        SubCardItem(
-            id: UUID(), name: "", set: nil, number: nil, isPSA: true,
-            psaCertNumber: nil, grade: nil, population: nil, populationHigher: nil,
-            psaImageFrontPath: nil, psaImageBackPath: nil, localImagePath: nil,
-            year: nil, variety: nil, gradeDescription: nil, category: nil,
-            labelType: nil, sortOrder: 0
-        )
     }
 }

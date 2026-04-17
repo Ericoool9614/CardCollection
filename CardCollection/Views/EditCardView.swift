@@ -20,14 +20,14 @@ struct EditCardView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Edit Entry")
+        .navigationTitle("编辑条目")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button("取消") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { viewModel.saveEntry() }
+                Button("保存") { viewModel.saveEntry() }
                     .fontWeight(.semibold)
             }
         }
@@ -48,9 +48,9 @@ struct EditCardView: View {
 
     private var nicknameSection: some View {
         Section {
-            TextField("Nickname", text: $viewModel.nickname)
+            TextField("昵称", text: $viewModel.nickname)
         } header: {
-            Label("Entry Name", systemImage: "tag")
+            Label("条目名称", systemImage: "tag")
         }
     }
 
@@ -71,7 +71,7 @@ struct EditCardView: View {
                 .padding(.vertical, 4)
             }
         } header: {
-            Label("Card Images", systemImage: "photo")
+            Label("卡牌图片", systemImage: "photo")
         }
     }
 
@@ -94,7 +94,7 @@ struct EditCardView: View {
                 ImagePlaceholder(isPSA: true)
             }
 
-            Text("PSA image from certification")
+            Text("评级卡图片来自认证")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -115,7 +115,7 @@ struct EditCardView: View {
 
                         Spacer()
 
-                        Button("Remove", role: .destructive) {
+                        Button("移除", role: .destructive) {
                             Task { await viewModel.removeLocalImage(at: index) }
                         }
                         .font(.caption)
@@ -131,51 +131,51 @@ struct EditCardView: View {
 
     private var imagePickerButton: some View {
         PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-            Label("Select Photo", systemImage: "plus.circle.fill")
+            Label("选择照片", systemImage: "plus.circle.fill")
         }
     }
 
     private var purchaseSection: some View {
         Section {
-            DatePicker("Purchase Date", selection: $viewModel.purchaseDate, displayedComponents: .date)
+            DatePicker("购买日期", selection: $viewModel.purchaseDate, displayedComponents: .date)
             HStack {
-                Text("Price")
+                Text("价格")
                 Spacer()
-                Text("$").foregroundStyle(.secondary)
+                Text("¥").foregroundStyle(.secondary)
                 TextField("0", value: $viewModel.purchasePrice, format: .number)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
             }
         } header: {
-            Label("Purchase", systemImage: "bag.fill")
+            Label("购买信息", systemImage: "bag.fill")
         }
     }
 
     private var saleSection: some View {
         Section {
-            Toggle("Mark as Sold", isOn: $viewModel.hasSold).tint(.green)
+            Toggle("标记为已出售", isOn: $viewModel.hasSold).tint(.green)
             if viewModel.hasSold {
-                DatePicker("Sell Date", selection: $viewModel.sellDate, displayedComponents: .date)
+                DatePicker("出售日期", selection: $viewModel.sellDate, displayedComponents: .date)
                 HStack {
-                    Text("Price")
+                    Text("价格")
                     Spacer()
-                    Text("$").foregroundStyle(.secondary)
+                    Text("¥").foregroundStyle(.secondary)
                     TextField("0", value: $viewModel.sellPrice, format: .number)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                 }
             }
         } header: {
-            Label("Sale", systemImage: "tag.fill")
+            Label("出售信息", systemImage: "tag.fill")
         }
     }
 
     private var notesSection: some View {
         Section {
-            TextField("Add notes...", text: $viewModel.note, axis: .vertical)
+            TextField("添加备注...", text: $viewModel.note, axis: .vertical)
                 .lineLimit(3...6)
         } header: {
-            Label("Notes", systemImage: "note.text")
+            Label("备注", systemImage: "note.text")
         }
     }
 }

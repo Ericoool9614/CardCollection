@@ -3,6 +3,8 @@ import SwiftUI
 struct CardDetailView: View {
     @StateObject private var viewModel: CardDetailViewModel
     @State private var showingEdit = false
+    @State private var showImageShareSheet = false
+    @State private var shareImagePaths: [String] = []
     @Environment(\.dismiss) private var dismiss
 
     init(entry: CardEntryItem) {
@@ -23,7 +25,7 @@ struct CardDetailView: View {
             .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Detail")
+        .navigationTitle("详情")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -35,6 +37,11 @@ struct CardDetailView: View {
         .sheet(isPresented: $showingEdit) {
             NavigationStack { EditCardView(entry: viewModel.entry) }
         }
+        .sheet(isPresented: $showImageShareSheet) {
+            if !shareImagePaths.isEmpty {
+                ImageShareSheet(imagePaths: shareImagePaths)
+            }
+        }
     }
 
     private var heroSection: some View {
@@ -43,19 +50,19 @@ struct CardDetailView: View {
             Text(viewModel.entry.displayName)
                 .font(.title2.weight(.bold))
             if viewModel.entry.cardCount > 1 {
-                Text("\(viewModel.entry.cardCount) cards")
+                Text("\(viewModel.entry.cardCount) 张卡牌")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 8) {
                 if viewModel.entry.hasPSA {
-                    Text("PSA").font(.caption.weight(.bold))
+                    Text("评级").font(.caption.weight(.bold))
                         .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(Color.orange.opacity(0.15)).foregroundStyle(.orange)
                         .clipShape(Capsule())
                 }
                 if viewModel.entry.isSold {
-                    Text("Sold").font(.caption.weight(.bold))
+                    Text("已出售").font(.caption.weight(.bold))
                         .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(Color.green.opacity(0.15)).foregroundStyle(.green)
                         .clipShape(Capsule())
@@ -66,44 +73,49 @@ struct CardDetailView: View {
     }
 
     private var cardsListSection: some View {
-        DetailSection(title: "Cards", icon: "rectangle.on.rectangle.angled", tint: .orange) {
+        DetailSection(title: "卡牌列表", icon: "rectangle.on.rectangle.angled", tint: .orange) {
             VStack(spacing: 12) {
                 ForEach(viewModel.entry.subcards) { card in
-                    SubCardRow(card: card)
+                    SubCardRow(card: card) {
+                        shareImagePaths = card.allImagePaths
+                        if !shareImagePaths.isEmpty {
+                            showImageShareSheet = true
+                        }
+                    }
                 }
             }
         }
     }
 
     private var purchaseSection: some View {
-        DetailSection(title: "Purchase", icon: "bag.fill", tint: .blue) {
+        DetailSection(title: "购买信息", icon: "bag.fill", tint: .blue) {
             VStack(spacing: 10) {
                 if let date = viewModel.formattedPurchaseDate {
-                    InfoRow(label: "Date", value: date)
+                    InfoRow(label: "购买日期", value: date)
                 }
-                InfoRow(label: "Price", value: viewModel.formattedPurchasePrice ?? "Not recorded")
+                InfoRow(label: "购买价格", value: viewModel.formattedPurchasePrice ?? "未记录")
             }
         }
     }
 
     private var saleSection: some View {
-        DetailSection(title: "Sale", icon: "tag.fill", tint: .green) {
+        DetailSection(title: "出售信息", icon: "tag.fill", tint: .green) {
             VStack(spacing: 10) {
                 if let date = viewModel.formattedSellDate {
-                    InfoRow(label: "Date", value: date)
+                    InfoRow(label: "出售日期", value: date)
                 }
                 if let price = viewModel.formattedSellPrice {
-                    InfoRow(label: "Price", value: price)
+                    InfoRow(label: "出售价格", value: price)
                 }
                 if let profitDisplay = viewModel.profitDisplay {
-                    InfoRow(label: "Profit/Loss", value: profitDisplay, valueColor: viewModel.profitColor)
+                    InfoRow(label: "盈亏", value: profitDisplay, valueColor: viewModel.profitColor)
                 }
             }
         }
     }
 
     private var notesSection: some View {
-        DetailSection(title: "Notes", icon: "note.text", tint: .yellow) {
+        DetailSection(title: "备注", icon: "note.text", tint: .yellow) {
             Text(viewModel.entry.note ?? "")
                 .font(.subheadline).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,7 +172,7 @@ struct CardDetailView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "chart.line.uptrend.xyaxis").font(.title3).foregroundStyle(.blue)
-                Text("Price History").font(.body.weight(.medium))
+                Text("价格历史").font(.body.weight(.medium))
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }
@@ -173,6 +185,7 @@ struct CardDetailView: View {
 
 struct SubCardRow: View {
     let card: SubCardItem
+    let onDownload: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -205,8 +218,20 @@ struct SubCardRow: View {
 
             Spacer()
 
-            if let pop = card.population, pop > 0 {
-                Text("Pop: \(pop)").font(.caption2).foregroundStyle(.secondary)
+            VStack(alignment: .trailing, spacing: 4) {
+                if let pop = card.population, pop > 0 {
+                    Text("Pop: \(pop)").font(.caption2).foregroundStyle(.secondary)
+                }
+
+                if !card.allImagePaths.isEmpty {
+                    Button {
+                        onDownload()
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                }
             }
         }
         .padding(10)
@@ -222,6 +247,22 @@ struct SubCardRow: View {
         default: return .red
         }
     }
+}
+
+struct ImageShareSheet: UIViewControllerRepresentable {
+    let imagePaths: [String]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        var items: [Any] = []
+        for path in imagePaths {
+            if let image = UIImage(contentsOfFile: path) {
+                items.append(image)
+            }
+        }
+        return UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct DetailSection<Content: View>: View {

@@ -16,11 +16,11 @@ struct ScanPSACardView: View {
                     permissionView
                 }
             }
-            .navigationTitle("Scan PSA Card")
+            .navigationTitle("扫码添加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
             }
             .onAppear {
@@ -44,7 +44,7 @@ struct ScanPSACardView: View {
                 if scannerService.isScanning {
                     VStack {
                         Spacer()
-                        Text("Scanning for QR code...")
+                        Text("正在扫描二维码...")
                             .font(.subheadline)
                             .foregroundStyle(.white)
                             .padding(8)
@@ -56,7 +56,7 @@ struct ScanPSACardView: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.accentColor, lineWidth: 2)
+                    .stroke(Color.orange, lineWidth: 2)
             )
             .padding()
 
@@ -75,20 +75,21 @@ struct ScanPSACardView: View {
 
     private func scannedResult(certNumber: String) -> some View {
         VStack(spacing: 12) {
-            Label("QR Code Detected!", systemImage: "checkmark.circle.fill")
+            Label("检测到二维码！", systemImage: "checkmark.circle.fill")
                 .font(.headline)
                 .foregroundStyle(.green)
 
-            Text("Cert Number: \(certNumber)")
+            Text("认证编号：\(certNumber)")
                 .font(.subheadline)
 
             HStack(spacing: 16) {
-                Button("Add This Card") {
+                Button("添加此卡") {
                     scannedCertToAdd = CertNumberWrapper(id: certNumber)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(.orange)
 
-                Button("Scan Again") {
+                Button("重新扫描") {
                     scannerService.scannedCertNumber = nil
                     scannerService.startScanning()
                 }
@@ -106,15 +107,15 @@ struct ScanPSACardView: View {
             Image(systemName: "camera.fill")
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
-            Text("Camera Access Required")
+            Text("需要相机权限")
                 .font(.title2)
                 .fontWeight(.bold)
-            Text("Please grant camera access to scan QR codes on PSA cards.")
+            Text("请授予相机访问权限以扫描PSA卡上的二维码。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
-            Button("Grant Permission") {
+            Button("授予权限") {
                 Task {
                     cameraPermissionGranted = await scannerService.requestCameraPermission()
                     if cameraPermissionGranted {
@@ -123,6 +124,7 @@ struct ScanPSACardView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
+            .tint(.orange)
         }
     }
 

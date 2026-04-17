@@ -14,45 +14,44 @@ struct PriceHistoryView: View {
             statsSection
             historySection
         }
-        .navigationTitle("Price History")
+        .navigationTitle("价格历史")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var addEntrySection: some View {
         Section {
             HStack {
-                Text("$")
-                    .foregroundStyle(.secondary)
-                TextField("Price", value: $viewModel.newPrice, format: .number)
+                Text("¥").foregroundStyle(.secondary)
+                TextField("价格", value: $viewModel.newPrice, format: .number)
                     .keyboardType(.decimalPad)
             }
             HStack {
-                TextField("Source", text: $viewModel.newSource)
-                Button("Add") {
+                TextField("来源", text: $viewModel.newSource)
+                Button("添加") {
                     viewModel.addEntry()
                 }
                 .disabled(viewModel.newPrice <= 0)
             }
         } header: {
-            Text("Add Price Entry")
+            Text("添加价格记录")
         }
     }
 
     private var statsSection: some View {
         Section {
             if viewModel.entries.isEmpty {
-                Text("No price history yet")
+                Text("暂无价格记录")
                     .foregroundStyle(.secondary)
             } else {
                 HStack {
-                    Text("Latest Price")
+                    Text("最新价格")
                     Spacer()
-                    Text("$\(String(format: "%.2f", viewModel.entries.first?.price ?? 0))")
+                    Text("¥\(String(format: "%.2f", viewModel.entries.first?.price ?? 0))")
                         .fontWeight(.medium)
                 }
                 if let change = viewModel.priceChangeDisplay {
                     HStack {
-                        Text("Total Change")
+                        Text("总变化")
                         Spacer()
                         Text(change)
                             .fontWeight(.medium)
@@ -60,14 +59,14 @@ struct PriceHistoryView: View {
                     }
                 }
                 HStack {
-                    Text("Entries")
+                    Text("记录数")
                     Spacer()
                     Text("\(viewModel.entries.count)")
                         .foregroundStyle(.secondary)
                 }
             }
         } header: {
-            Text("Statistics")
+            Text("统计")
         }
     }
 
@@ -76,7 +75,7 @@ struct PriceHistoryView: View {
             ForEach(viewModel.entries) { entry in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("$\(String(format: "%.2f", entry.price))")
+                        Text("¥\(String(format: "%.2f", entry.price))")
                             .fontWeight(.medium)
                         Text(entry.source)
                             .font(.caption)
@@ -91,12 +90,12 @@ struct PriceHistoryView: View {
                     Button(role: .destructive) {
                         viewModel.deleteEntry(entry)
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("删除", systemImage: "trash")
                     }
                 }
             }
         } header: {
-            Text("History")
+            Text("历史记录")
         }
     }
 }

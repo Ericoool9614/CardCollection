@@ -28,4 +28,13 @@ class DashboardViewModel: ObservableObject {
             $0 + (($1.sellPrice ?? 0) - ($1.purchasePrice ?? 0))
         }
     }
+
+    func formatted(_ value: Double) -> String {
+        if abs(value) >= 10000 {
+            return String(format: "¥%.0f", value)
+        } else if abs(value) >= 1000 {
+            return String(format: "¥%.0f", value)
+        }
+        return String(format: "¥%.2f", value)
+    }
 }

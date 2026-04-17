@@ -14,11 +14,16 @@ class AddCardEntryViewModel: ObservableObject {
     @Published var note = ""
     @Published var isSaved = false
     @Published var errorMessage: String?
+    @Published var isFetchingPSA = false
 
     private let persistence = PersistenceController.shared
 
     var canSave: Bool {
         !subcards.isEmpty && subcards.allSatisfy { !$0.name.isEmpty }
+    }
+
+    func indexOfCard(_ card: SubCardItem) -> Int {
+        subcards.firstIndex(where: { $0.id == card.id }) ?? 0
     }
 
     func addSubcard(isPSA: Bool = true) {
@@ -46,40 +51,32 @@ class AddCardEntryViewModel: ObservableObject {
         selectedTab = subcards.count - 1
     }
 
-    func removeSubcard(at index: Int) {
+    func removeSubcard(id: UUID) {
         guard subcards.count > 1 else { return }
+        subcards.removeAll { $0.id == id }
+        for i in subcards.indices { subcards[i].sortOrder = i }
+        if selectedTab >= subcards.count { selectedTab = subcards.count - 1 }
+    }
+
+    func removeSubcard(at index: Int) {
+        guard subcards.count > 1, index < subcards.count else { return }
         subcards.remove(at: index)
         for i in subcards.indices { subcards[i].sortOrder = i }
         if selectedTab >= subcards.count { selectedTab = subcards.count - 1 }
     }
 
-    func updateSubcard(_ item: SubCardItem) {
-        if let idx = subcards.firstIndex(where: { $0.id == item.id }) {
-            subcards[idx] = item
-        }
-    }
-
-    func updateSubcard(at index: Int, _ update: (inout SubCardItem) -> Void) {
-        guard index < subcards.count else { return }
-        var card = subcards[index]
-        update(&card)
-        subcards[index] = card
-    }
-
-    func setSubcardName(at index: Int, _ name: String) {
-        updateSubcard(at: index) { $0.name = name }
-    }
-
-    func setSubcardSet(at index: Int, _ set: String) {
-        updateSubcard(at: index) { $0.set = set.isEmpty ? nil : set }
-    }
-
-    func setSubcardNumber(at index: Int, _ number: String) {
-        updateSubcard(at: index) { $0.number = number.isEmpty ? nil : number }
+    func setSubcardCertNumber(id: UUID, _ cert: String) {
+        guard let idx = subcards.firstIndex(where: { $0.id == id }) else { return }
+        var card = subcards[idx]
+        card.psaCertNumber = cert.isEmpty ? nil : cert
+        subcards[idx] = card
     }
 
     func setSubcardCertNumber(at index: Int, _ cert: String) {
-        updateSubcard(at: index) { $0.psaCertNumber = cert.isEmpty ? nil : cert }
+        guard index < subcards.count else { return }
+        var card = subcards[index]
+        card.psaCertNumber = cert.isEmpty ? nil : cert
+        subcards[index] = card
     }
 
     func setLocalImage(at index: Int, image: UIImage) async {
@@ -87,7 +84,9 @@ class AddCardEntryViewModel: ObservableObject {
         let cardId = subcards[index].id
         do {
             let relativePath = try await ImageStorageService.shared.saveLocalImage(image, id: cardId)
-            updateSubcard(at: index) { $0.localImagePath = relativePath }
+            var card = subcards[index]
+            card.localImagePath = relativePath
+            subcards[index] = card
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -98,16 +97,43 @@ class AddCardEntryViewModel: ObservableObject {
         if let path = subcards[index].localImagePath {
             await ImageStorageService.shared.deleteImage(path: path)
         }
-        updateSubcard(at: index) { $0.localImagePath = nil }
+        var card = subcards[index]
+        card.localImagePath = nil
+        subcards[index] = card
     }
 
-    func fetchPSAData(for index: Int) async {
+    func fetchPSACard(id: UUID) async {
+        guard let index = subcards.firstIndex(where: { $0.id == id }) else { return }
+        await fetchPSACard(at: index)
+    }
+
+    func fetchPSACard(at index: Int) async {
         guard index < subcards.count else { return }
         let certNumber = subcards[index].psaCertNumber ?? ""
         guard !certNumber.isEmpty else {
-            errorMessage = "Please enter a PSA cert number"
+            errorMessage = "请输入PSA认证编号"
             return
         }
+
+        let existingCertNumbers = persistence.fetchAllEntries()
+            .flatMap { $0.subcardsSorted }
+            .compactMap { $0.psaCertNumber }
+        if existingCertNumbers.contains(certNumber) {
+            errorMessage = "认证编号 \(certNumber) 的评级卡已存在，请勿重复添加"
+            return
+        }
+
+        let currentSubcards = subcards
+        let duplicateInForm = currentSubcards.enumerated().filter {
+            $0.offset != index && $0.element.psaCertNumber == certNumber
+        }
+        if !duplicateInForm.isEmpty {
+            errorMessage = "认证编号 \(certNumber) 已在当前条目中添加"
+            return
+        }
+
+        isFetchingPSA = true
+        defer { isFetchingPSA = false }
 
         do {
             let result = try await PSAService.shared.fetchCard(certNumber: certNumber)
@@ -145,7 +171,8 @@ class AddCardEntryViewModel: ObservableObject {
             sellPrice: hasSold ? sellPrice : nil,
             note: note.isEmpty ? nil : note,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
+            askingPrice: nil
         )
         persistence.createEntry(from: item)
         isSaved = true

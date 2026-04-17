@@ -14,7 +14,7 @@ struct DashboardView: View {
             .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Collection")
+        .navigationTitle("收藏概览")
         .navigationBarTitleDisplayMode(.large)
         .onAppear { viewModel.loadDashboard() }
         .refreshable { viewModel.loadDashboard() }
@@ -22,9 +22,9 @@ struct DashboardView: View {
 
     private var heroSection: some View {
         VStack(spacing: 6) {
-            Text("Pokémon Cards")
+            Text("宝可梦卡牌")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-            Text("\(viewModel.totalEntries) entries, \(viewModel.totalCards) cards")
+            Text("\(viewModel.totalEntries) 个条目，\(viewModel.totalCards) 张卡牌")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -36,43 +36,38 @@ struct DashboardView: View {
     private var summaryCards: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                SummaryCardView(title: "Investment", value: "$\(formatted(viewModel.totalInvestment))",
-                    icon: "dollarsign.circle.fill", color: .blue, subtitle: "Total invested")
-                SummaryCardView(title: "Profit", value: "$\(formatted(viewModel.totalProfit))",
+                SummaryCardView(title: "投入", value: viewModel.formatted(viewModel.totalInvestment),
+                    icon: "yensign.circle.fill", color: .blue, subtitle: "总投入金额")
+                SummaryCardView(title: "盈亏", value: viewModel.formatted(viewModel.totalProfit),
                     icon: viewModel.totalProfit >= 0 ? "chart.line.uptrend.xyaxis" : "chart.line.downtrend.xyaxis",
                     color: viewModel.totalProfit >= 0 ? .green : .red,
-                    subtitle: viewModel.totalProfit >= 0 ? "Net gain" : "Net loss")
+                    subtitle: viewModel.totalProfit >= 0 ? "净盈利" : "净亏损")
             }
             HStack(spacing: 12) {
-                SummaryCardView(title: "PSA", value: "\(viewModel.psaCount)",
-                    icon: "shield.checkered", color: .orange, subtitle: "Graded cards")
-                SummaryCardView(title: "Raw", value: "\(viewModel.nonPSACount)",
-                    icon: "rectangle.on.rectangle.angled", color: .purple, subtitle: "Ungraded cards")
+                SummaryCardView(title: "评级卡", value: "\(viewModel.psaCount)",
+                    icon: "shield.checkered", color: .orange, subtitle: "已评级卡牌")
+                SummaryCardView(title: "裸卡", value: "\(viewModel.nonPSACount)",
+                    icon: "rectangle.on.rectangle.angled", color: .purple, subtitle: "未评级卡牌")
             }
         }
     }
 
     private var detailSections: some View {
         VStack(spacing: 16) {
-            DetailSectionView(title: "Portfolio", icon: "chart.pie.fill", tint: .blue) {
+            DetailSectionView(title: "投资组合", icon: "chart.pie.fill", tint: .blue) {
                 VStack(spacing: 10) {
-                    DetailRowView(label: "Entries", value: "\(viewModel.totalEntries)")
-                    DetailRowView(label: "Total Cards", value: "\(viewModel.totalCards)")
-                    DetailRowView(label: "Total Investment", value: "$\(formatted(viewModel.totalInvestment))")
+                    DetailRowView(label: "条目数", value: "\(viewModel.totalEntries)")
+                    DetailRowView(label: "卡牌总数", value: "\(viewModel.totalCards)")
+                    DetailRowView(label: "总投入", value: viewModel.formatted(viewModel.totalInvestment))
                     if viewModel.soldCount > 0 {
-                        DetailRowView(label: "Realized Profit", value: "$\(formatted(viewModel.totalProfit))",
+                        DetailRowView(label: "已实现盈亏", value: viewModel.formatted(viewModel.totalProfit),
                             valueColor: viewModel.totalProfit >= 0 ? .green : .red)
                     }
-                    DetailRowView(label: "Sold", value: "\(viewModel.soldCount)")
-                    DetailRowView(label: "Holding", value: "\(viewModel.unsoldCount)")
+                    DetailRowView(label: "已出售", value: "\(viewModel.soldCount)")
+                    DetailRowView(label: "持有中", value: "\(viewModel.unsoldCount)")
                 }
             }
         }
-    }
-
-    private func formatted(_ value: Double) -> String {
-        if abs(value) >= 1000 { return String(format: "%.0f", value) }
-        return String(format: "%.2f", value)
     }
 }
 

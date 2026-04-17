@@ -4,7 +4,7 @@ import Foundation
 class PriceHistoryViewModel: ObservableObject {
     @Published var entries: [PriceEntry] = []
     @Published var newPrice: Double = 0
-    @Published var newSource: String = "Manual"
+    @Published var newSource: String = "手动录入"
 
     private let service = PriceHistoryService.shared
     private let cardId: UUID
@@ -22,7 +22,7 @@ class PriceHistoryViewModel: ObservableObject {
         guard newPrice > 0 else { return }
         service.addEntry(cardId: cardId, price: newPrice, source: newSource)
         newPrice = 0
-        newSource = "Manual"
+        newSource = "手动录入"
         loadEntries()
     }
 
@@ -40,7 +40,7 @@ class PriceHistoryViewModel: ObservableObject {
     var priceChangeDisplay: String? {
         guard let change = priceChange else { return nil }
         let sign = change >= 0 ? "+" : ""
-        return "\(sign)$\(String(format: "%.2f", change))"
+        return "\(sign)¥\(String(format: "%.2f", change))"
     }
 
     var priceChangeColor: String {

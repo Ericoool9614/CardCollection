@@ -3,6 +3,7 @@ import CoreData
 
 @objc(CardEntry)
 public class CardEntry: NSManagedObject {
+    @NSManaged public var askingPrice: Double
     @NSManaged public var createdAt: Date?
     @NSManaged public var id: UUID?
     @NSManaged public var nickname: String?
@@ -94,7 +95,8 @@ extension CardEntry {
             sellPrice: sellPrice > 0 ? sellPrice : nil,
             note: note,
             createdAt: createdAt ?? Date(),
-            updatedAt: updatedAt ?? Date()
+            updatedAt: updatedAt ?? Date(),
+            askingPrice: askingPrice > 0 ? askingPrice : nil
         )
     }
 
@@ -107,6 +109,7 @@ extension CardEntry {
         sellPrice = item.sellPrice ?? 0
         note = item.note
         updatedAt = Date()
+        askingPrice = item.askingPrice ?? 0
     }
 }
 

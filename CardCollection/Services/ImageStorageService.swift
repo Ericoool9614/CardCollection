@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 actor ImageStorageService {
     static let shared = ImageStorageService()
@@ -8,6 +9,15 @@ actor ImageStorageService {
     private var imagesDirectory: URL {
         let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         let imagesDir = documentsDir.appendingPathComponent("PSAImages", isDirectory: true)
+        if !fileManager.fileExists(atPath: imagesDir.path) {
+            try? fileManager.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+        }
+        return imagesDir
+    }
+
+    private var localImagesDirectory: URL {
+        let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let imagesDir = documentsDir.appendingPathComponent("LocalImages", isDirectory: true)
         if !fileManager.fileExists(atPath: imagesDir.path) {
             try? fileManager.createDirectory(at: imagesDir, withIntermediateDirectories: true)
         }
@@ -54,6 +64,16 @@ actor ImageStorageService {
         return "PSAImages/\(fileName)"
     }
 
+    func saveLocalImage(_ image: UIImage, id: UUID) throws -> String {
+        guard let data = image.jpegData(compressionQuality: 0.85) else {
+            throw ImageStorageError.saveFailed
+        }
+        let fileName = "Local_\(id.uuidString).jpg"
+        let fileURL = localImagesDirectory.appendingPathComponent(fileName)
+        try data.write(to: fileURL)
+        return "LocalImages/\(fileName)"
+    }
+
     func deleteImage(path: String) {
         let resolvedPath = ImageStorageService.resolvePath(path)
         if fileManager.fileExists(atPath: resolvedPath) {
@@ -70,6 +90,7 @@ actor ImageStorageService {
 enum ImageStorageError: LocalizedError, Sendable {
     case invalidURL
     case downloadFailed
+    case saveFailed
 
     var errorDescription: String? {
         switch self {
@@ -77,6 +98,8 @@ enum ImageStorageError: LocalizedError, Sendable {
             return "Invalid image URL"
         case .downloadFailed:
             return "Failed to download image"
+        case .saveFailed:
+            return "Failed to save image"
         }
     }
 }

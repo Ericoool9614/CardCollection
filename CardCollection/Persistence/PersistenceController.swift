@@ -6,8 +6,13 @@ final class PersistenceController: ObservableObject, Sendable {
 
     let container: NSPersistentContainer
 
+    private static let managedObjectModel: NSManagedObjectModel = {
+        let modelURL = Bundle(for: CardEntry.self).url(forResource: "CardCollection", withExtension: "momd")!
+        return NSManagedObjectModel(contentsOf: modelURL)!
+    }()
+
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "CardCollection")
+        container = NSPersistentContainer(name: "CardCollection", managedObjectModel: Self.managedObjectModel)
 
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
@@ -55,7 +60,7 @@ final class PersistenceController: ObservableObject, Sendable {
         for subItem in item.subcards {
             let sub = SubCard(context: context)
             sub.updateFromItem(subItem)
-            sub.entry = entry
+            entry.addToSubcards(sub)
         }
         save()
         return entry
@@ -64,7 +69,6 @@ final class PersistenceController: ObservableObject, Sendable {
     func updateEntry(_ entry: CardEntry, with item: CardEntryItem) {
         entry.updateFromItem(item)
         let existingSubs = entry.subcardsSorted
-        let existingIds = Set(existingSubs.compactMap { $0.id })
         let newItemIds = Set(item.subcards.map { $0.id })
         for sub in existingSubs {
             if let subId = sub.id, !newItemIds.contains(subId) {
@@ -77,7 +81,7 @@ final class PersistenceController: ObservableObject, Sendable {
             } else {
                 let sub = SubCard(context: container.viewContext)
                 sub.updateFromItem(subItem)
-                sub.entry = entry
+                entry.addToSubcards(sub)
             }
         }
         save()

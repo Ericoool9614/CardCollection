@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 class EditCardEntryViewModel: ObservableObject {
@@ -11,6 +12,7 @@ class EditCardEntryViewModel: ObservableObject {
     @Published var note = ""
     @Published var isSaved = false
     @Published var errorMessage: String?
+    @Published var subcards: [SubCardItem]
 
     private let persistence = PersistenceController.shared
     private var originalEntry: CardEntryItem
@@ -24,6 +26,26 @@ class EditCardEntryViewModel: ObservableObject {
         self.sellPrice = entry.sellPrice ?? 0
         self.hasSold = entry.sellDate != nil
         self.note = entry.note ?? ""
+        self.subcards = entry.subcards
+    }
+
+    func setLocalImage(at index: Int, image: UIImage) async {
+        guard index < subcards.count else { return }
+        let cardId = subcards[index].id
+        do {
+            let relativePath = try await ImageStorageService.shared.saveLocalImage(image, id: cardId)
+            subcards[index].localImagePath = relativePath
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func removeLocalImage(at index: Int) async {
+        guard index < subcards.count else { return }
+        if let path = subcards[index].localImagePath {
+            await ImageStorageService.shared.deleteImage(path: path)
+        }
+        subcards[index].localImagePath = nil
     }
 
     func saveEntry() {
@@ -34,6 +56,7 @@ class EditCardEntryViewModel: ObservableObject {
         updated.sellDate = hasSold ? sellDate : nil
         updated.sellPrice = hasSold ? sellPrice : nil
         updated.note = note.isEmpty ? nil : note
+        updated.subcards = subcards
 
         let allEntries = persistence.fetchAllEntries()
         if let entry = allEntries.first(where: { $0.id == originalEntry.id }) {

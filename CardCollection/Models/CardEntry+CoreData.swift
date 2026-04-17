@@ -1,6 +1,63 @@
 import Foundation
 import CoreData
 
+@objc(CardEntry)
+public class CardEntry: NSManagedObject {
+    @NSManaged public var createdAt: Date?
+    @NSManaged public var id: UUID?
+    @NSManaged public var nickname: String?
+    @NSManaged public var note: String?
+    @NSManaged public var purchaseDate: Date?
+    @NSManaged public var purchasePrice: Double
+    @NSManaged public var sellDate: Date?
+    @NSManaged public var sellPrice: Double
+    @NSManaged public var updatedAt: Date?
+    @NSManaged public var subcards: NSSet?
+
+    @nonobjc public class func fetchRequest() -> NSFetchRequest<CardEntry> {
+        return NSFetchRequest<CardEntry>(entityName: "CardEntry")
+    }
+
+    @objc(addSubcardsObject:)
+    @NSManaged public func addToSubcards(_ value: SubCard)
+
+    @objc(removeSubcardsObject:)
+    @NSManaged public func removeFromSubcards(_ value: SubCard)
+
+    @objc(addSubcards:)
+    @NSManaged public func addToSubcards(_ values: NSSet)
+
+    @objc(removeSubcards:)
+    @NSManaged public func removeFromSubcards(_ values: NSSet)
+}
+
+@objc(SubCard)
+public class SubCard: NSManagedObject {
+    @NSManaged public var category: String?
+    @NSManaged public var grade: Int32
+    @NSManaged public var gradeDescription: String?
+    @NSManaged public var id: UUID?
+    @NSManaged public var isPSA: Bool
+    @NSManaged public var labelType: String?
+    @NSManaged public var localImagePath: String?
+    @NSManaged public var name: String?
+    @NSManaged public var number: String?
+    @NSManaged public var population: Int32
+    @NSManaged public var populationHigher: Int32
+    @NSManaged public var psaCertNumber: String?
+    @NSManaged public var psaImageBackPath: String?
+    @NSManaged public var psaImageFrontPath: String?
+    @NSManaged public var set: String?
+    @NSManaged public var sortOrder: Int32
+    @NSManaged public var variety: String?
+    @NSManaged public var year: String?
+    @NSManaged public var entry: CardEntry?
+
+    @nonobjc public class func fetchRequest() -> NSFetchRequest<SubCard> {
+        return NSFetchRequest<SubCard>(entityName: "SubCard")
+    }
+}
+
 extension CardEntry {
     var displayName: String {
         if let nick = nickname, !nick.isEmpty { return nick }
@@ -26,10 +83,11 @@ extension CardEntry {
     var hasPSA: Bool { subcardsSorted.contains { $0.isPSA } }
 
     func toItem() -> CardEntryItem {
-        CardEntryItem(
+        let sortedSubs = subcardsSorted
+        return CardEntryItem(
             id: id ?? UUID(),
             nickname: nickname,
-            subcards: subcardsSorted.map { $0.toItem() },
+            subcards: sortedSubs.map { $0.toItem() },
             purchaseDate: purchaseDate,
             purchasePrice: purchasePrice > 0 ? purchasePrice : nil,
             sellDate: sellDate,

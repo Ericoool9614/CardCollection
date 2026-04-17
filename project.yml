@@ -58,3 +58,15 @@ targets:
         NSCameraUsageDescription: "This app needs camera access to scan QR codes on PSA cards"
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+  CardCollectionTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CardCollectionTests
+    dependencies:
+      - target: CardCollection
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cardcollection.tests
+        SWIFT_STRICT_CONCURRENCY: minimal
+        GENERATE_INFOPLIST_FILE: YES

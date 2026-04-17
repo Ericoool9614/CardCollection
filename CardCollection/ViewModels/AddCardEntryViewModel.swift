@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 class AddCardEntryViewModel: ObservableObject {
@@ -79,6 +80,25 @@ class AddCardEntryViewModel: ObservableObject {
 
     func setSubcardCertNumber(at index: Int, _ cert: String) {
         updateSubcard(at: index) { $0.psaCertNumber = cert.isEmpty ? nil : cert }
+    }
+
+    func setLocalImage(at index: Int, image: UIImage) async {
+        guard index < subcards.count else { return }
+        let cardId = subcards[index].id
+        do {
+            let relativePath = try await ImageStorageService.shared.saveLocalImage(image, id: cardId)
+            updateSubcard(at: index) { $0.localImagePath = relativePath }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func removeLocalImage(at index: Int) async {
+        guard index < subcards.count else { return }
+        if let path = subcards[index].localImagePath {
+            await ImageStorageService.shared.deleteImage(path: path)
+        }
+        updateSubcard(at: index) { $0.localImagePath = nil }
     }
 
     func fetchPSAData(for index: Int) async {

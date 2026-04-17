@@ -1,13 +1,16 @@
 import SwiftUI
+import PhotosUI
 
 struct AddNonPSACardView: View {
     @StateObject private var viewModel = AddCardEntryViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     var body: some View {
         Form {
             nicknameSection
             cardInfoSection
+            imageSection
             purchaseSection
             saleSection
             notesSection
@@ -34,6 +37,16 @@ struct AddNonPSACardView: View {
         .onChange(of: viewModel.isSaved) { _, saved in
             if saved { dismiss() }
         }
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            Task {
+                guard let newItem else { return }
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await viewModel.setLocalImage(at: 0, image: image)
+                }
+                selectedPhotoItem = nil
+            }
+        }
     }
 
     private var nicknameSection: some View {
@@ -59,6 +72,44 @@ struct AddNonPSACardView: View {
             }
         } header: {
             Label("Card Info", systemImage: "rectangle.on.rectangle.angled")
+        }
+    }
+
+    private var imageSection: some View {
+        Section {
+            if !viewModel.subcards.isEmpty {
+                if let imagePath = viewModel.subcards[0].localImagePath,
+                   !imagePath.isEmpty {
+                    let resolvedPath = ImageStorageService.resolvePath(imagePath)
+                    if FileManager.default.fileExists(atPath: resolvedPath),
+                       let uiImage = UIImage(contentsOfFile: resolvedPath) {
+                        VStack {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxHeight: 200)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                            Button("Remove Image", role: .destructive) {
+                                Task { await viewModel.removeLocalImage(at: 0) }
+                            }
+                            .font(.caption)
+                        }
+                    } else {
+                        imagePickerButton
+                    }
+                } else {
+                    imagePickerButton
+                }
+            }
+        } header: {
+            Label("Card Image", systemImage: "photo")
+        }
+    }
+
+    private var imagePickerButton: some View {
+        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+            Label("Select Photo", systemImage: "plus.circle.fill")
         }
     }
 

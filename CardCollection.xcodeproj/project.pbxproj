@@ -11,11 +11,11 @@
 		03F98D121EFFE1968DF5747C /* CardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009725DAD8FF92A28C0C5E6A /* CardDetailView.swift */; };
 		0CA2C167A005EB4D16F274F8 /* AddNonPSACardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 688CFA9C1F944C063E7590DF /* AddNonPSACardView.swift */; };
 		0F7B447902ACC68EFE5B14C1 /* CardCollection.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = E93C8BC3072835247DE6B6B0 /* CardCollection.xcdatamodeld */; };
-		1A878ABC3A9DF4F2B2C42782 /* CoreDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4335D7EE89C38BF0F21459 /* CoreDataTests.swift */; };
 		2B86CF99B4C7E18D75F99CB5 /* EditCardEntryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E49322D4544E0B1969B01B6F /* EditCardEntryViewModel.swift */; };
 		2C4D6A5609E3903D9ABAB79F /* PSAService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FADFD3FF4132893F26133370 /* PSAService.swift */; };
 		38D473717094F3A568742C3F /* CardDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07203AA8F3D17DBC7230117E /* CardDetailViewModel.swift */; };
 		3F7DBCAC4AD290A345D74B59 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 980D3B7056B55B6186DA2D03 /* Assets.xcassets */; };
+		42A5D943A7893D73244C65DC /* CardCollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5769513170CD22C0C5408B26 /* CardCollectionTests.swift */; };
 		446F5DED592190D0329A01A8 /* AddCardEntryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748BD01526F4D04F103612A9 /* AddCardEntryViewModel.swift */; };
 		44F49DDB4CC0BAEE555B18B6 /* CSVExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB4138E7DCCD2FC25DBDC71 /* CSVExportService.swift */; };
 		48DAA9EE878955362C4DB198 /* CardEntry+CoreData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5515212FF68BD6183F18D1F4 /* CardEntry+CoreData.swift */; };
@@ -56,6 +56,7 @@
 		3022D291AA45090E2FFB323E /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
 		38D418D110B0693427BAE5B6 /* ImageStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageStorageService.swift; sourceTree = "<group>"; };
 		5515212FF68BD6183F18D1F4 /* CardEntry+CoreData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CardEntry+CoreData.swift"; sourceTree = "<group>"; };
+		5769513170CD22C0C5408B26 /* CardCollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardCollectionTests.swift; sourceTree = "<group>"; };
 		688CFA9C1F944C063E7590DF /* AddNonPSACardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddNonPSACardView.swift; sourceTree = "<group>"; };
 		7168E9F71603F4640A12A4E0 /* PriceEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceEntry.swift; sourceTree = "<group>"; };
 		727C273CB72A4D808DCD396B /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -74,7 +75,6 @@
 		DCC8900334E0278FFA2C183C /* CardCollectionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardCollectionApp.swift; sourceTree = "<group>"; };
 		E41EC379DEEBF30D788416AD /* PriceHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistoryView.swift; sourceTree = "<group>"; };
 		E49322D4544E0B1969B01B6F /* EditCardEntryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditCardEntryViewModel.swift; sourceTree = "<group>"; };
-		EB4335D7EE89C38BF0F21459 /* CoreDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataTests.swift; sourceTree = "<group>"; };
 		EF664763910C06AF56F4A7E9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FADFD3FF4132893F26133370 /* PSAService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PSAService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -95,7 +95,7 @@
 		383B82E6B5CC53E217696DA0 /* CardCollectionTests */ = {
 			isa = PBXGroup;
 			children = (
-				EB4335D7EE89C38BF0F21459 /* CoreDataTests.swift */,
+				5769513170CD22C0C5408B26 /* CardCollectionTests.swift */,
 			);
 			path = CardCollectionTests;
 			sourceTree = "<group>";
@@ -317,7 +317,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A878ABC3A9DF4F2B2C42782 /* CoreDataTests.swift in Sources */,
+				42A5D943A7893D73244C65DC /* CardCollectionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

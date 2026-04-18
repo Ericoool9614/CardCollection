@@ -14,12 +14,21 @@ class AddCardEntryViewModel: ObservableObject {
     @Published var note = ""
     @Published var isSaved = false
     @Published var errorMessage: String?
-    @Published var isFetchingPSA = false
+    @Published var fetchingCardIds: Set<UUID> = []
+    @Published var showBatchAdd = false
+    @Published var batchStartNumber = ""
+    @Published var batchEndNumber = ""
+    @Published var batchProgress: Double = 0
+    @Published var isBatchFetching = false
 
     private let persistence = PersistenceController.shared
 
     var canSave: Bool {
         !subcards.isEmpty && subcards.allSatisfy { !$0.name.isEmpty }
+    }
+
+    func isFetching(id: UUID) -> Bool {
+        fetchingCardIds.contains(id)
     }
 
     func indexOfCard(_ card: SubCardItem) -> Int {
@@ -34,6 +43,31 @@ class AddCardEntryViewModel: ObservableObject {
             number: nil,
             isPSA: isPSA,
             psaCertNumber: nil,
+            grade: nil,
+            population: nil,
+            populationHigher: nil,
+            psaImageFrontPath: nil,
+            psaImageBackPath: nil,
+            localImagePath: nil,
+            year: nil,
+            variety: nil,
+            gradeDescription: nil,
+            category: nil,
+            labelType: nil,
+            sortOrder: subcards.count
+        )
+        subcards.append(card)
+        selectedTab = subcards.count - 1
+    }
+
+    func addSubcardWithCertNumber(_ certNumber: String) {
+        let card = SubCardItem(
+            id: UUID(),
+            name: "",
+            set: nil,
+            number: nil,
+            isPSA: true,
+            psaCertNumber: certNumber,
             grade: nil,
             population: nil,
             populationHigher: nil,
@@ -109,31 +143,16 @@ class AddCardEntryViewModel: ObservableObject {
 
     func fetchPSACard(at index: Int) async {
         guard index < subcards.count else { return }
+        let cardId = subcards[index].id
         let certNumber = subcards[index].psaCertNumber ?? ""
         guard !certNumber.isEmpty else {
             errorMessage = "请输入PSA认证编号"
             return
         }
 
-        let existingCertNumbers = persistence.fetchAllEntries()
-            .flatMap { $0.subcardsSorted }
-            .compactMap { $0.psaCertNumber }
-        if existingCertNumbers.contains(certNumber) {
-            errorMessage = "认证编号 \(certNumber) 的评级卡已存在，请勿重复添加"
-            return
-        }
+        if checkDuplicateCert(certNumber, excludeIndex: index) { return }
 
-        let currentSubcards = subcards
-        let duplicateInForm = currentSubcards.enumerated().filter {
-            $0.offset != index && $0.element.psaCertNumber == certNumber
-        }
-        if !duplicateInForm.isEmpty {
-            errorMessage = "认证编号 \(certNumber) 已在当前条目中添加"
-            return
-        }
-
-        isFetchingPSA = true
-        defer { isFetchingPSA = false }
+        fetchingCardIds.insert(cardId)
 
         do {
             let result = try await PSAService.shared.fetchCard(certNumber: certNumber)
@@ -157,6 +176,130 @@ class AddCardEntryViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+
+        fetchingCardIds.remove(cardId)
+    }
+
+    private func checkDuplicateCert(_ certNumber: String, excludeIndex: Int) -> Bool {
+        let existingCertNumbers = persistence.fetchAllEntries()
+            .flatMap { $0.subcardsSorted }
+            .compactMap { $0.psaCertNumber }
+        if existingCertNumbers.contains(certNumber) {
+            errorMessage = "认证编号 \(certNumber) 的评级卡已存在，请勿重复添加"
+            return true
+        }
+
+        let duplicateInForm = subcards.enumerated().filter {
+            $0.offset != excludeIndex && $0.element.psaCertNumber == certNumber
+        }
+        if !duplicateInForm.isEmpty {
+            errorMessage = "认证编号 \(certNumber) 已在当前条目中添加"
+            return true
+        }
+
+        return false
+    }
+
+    func batchFetchPSACards() async {
+        guard let startNum = Int(batchStartNumber),
+              let endNum = Int(batchEndNumber),
+              startNum <= endNum else {
+            errorMessage = "请输入有效的起始和结束编号"
+            return
+        }
+
+        let totalCount = endNum - startNum + 1
+        if totalCount > 100 {
+            errorMessage = "单次批量添加不超过100张"
+            return
+        }
+
+        isBatchFetching = true
+        batchProgress = 0
+
+        subcards.removeAll { $0.name.isEmpty && $0.psaCertNumber == nil }
+
+        var certNumbers: [String] = []
+        for num in startNum...endNum {
+            certNumbers.append(String(num))
+        }
+
+        let existingCerts = Set(persistence.fetchAllEntries()
+            .flatMap { $0.subcardsSorted }
+            .compactMap { $0.psaCertNumber })
+        let existingInForm = Set(subcards.compactMap { $0.psaCertNumber })
+        let allExisting = existingCerts.union(existingInForm)
+
+        let newCertNumbers = certNumbers.filter { !allExisting.contains($0) }
+        if newCertNumbers.count < certNumbers.count {
+            let skipped = certNumbers.count - newCertNumbers.count
+            errorMessage = "跳过 \(skipped) 个已存在的编号"
+        }
+
+        let semaphore = AsyncSemaphore(limit: 5)
+        let batchTotalCount = Double(newCertNumbers.count)
+        var results: [(Int, SubCardItem)] = []
+        var errors: [String] = []
+
+        await withTaskGroup(of: (Int, Result<SubCardItem, Error>).self) { group in
+            for (idx, certNumber) in newCertNumbers.enumerated() {
+                group.addTask {
+                    await semaphore.wait()
+                    defer { semaphore.signal() }
+                    do {
+                        let result = try await PSAService.shared.fetchCard(certNumber: certNumber)
+                        let card = SubCardItem(
+                            id: UUID(),
+                            name: result.cardName,
+                            set: result.cardSet,
+                            number: result.cardNumber,
+                            isPSA: true,
+                            psaCertNumber: certNumber,
+                            grade: result.grade,
+                            population: result.population,
+                            populationHigher: result.populationHigher,
+                            psaImageFrontPath: result.frontImagePath,
+                            psaImageBackPath: result.backImagePath,
+                            localImagePath: nil,
+                            year: result.year,
+                            variety: result.variety,
+                            gradeDescription: result.gradeDescription,
+                            category: result.category,
+                            labelType: result.labelType,
+                            sortOrder: idx
+                        )
+                        return (idx, .success(card))
+                    } catch {
+                        return (idx, .failure(error))
+                    }
+                }
+            }
+
+            for await (idx, result) in group {
+                batchProgress = Double(results.count + errors.count + 1) / batchTotalCount
+                switch result {
+                case .success(let card):
+                    results.append((idx, card))
+                case .failure:
+                    errors.append(newCertNumbers[idx])
+                }
+            }
+        }
+
+        results.sort { $0.0 < $1.0 }
+        for (_, card) in results {
+            var mutableCard = card
+            mutableCard.sortOrder = subcards.count
+            subcards.append(mutableCard)
+        }
+
+        for i in subcards.indices {
+            subcards[i].sortOrder = i
+        }
+
+        isBatchFetching = false
+        batchProgress = 1.0
+        showBatchAdd = false
     }
 
     func saveEntry() {
@@ -176,5 +319,41 @@ class AddCardEntryViewModel: ObservableObject {
         )
         persistence.createEntry(from: item)
         isSaved = true
+    }
+}
+
+final class AsyncSemaphore: @unchecked Sendable {
+    private let limit: Int
+    private let queue = DispatchQueue(label: "AsyncSemaphore", attributes: .concurrent)
+    private var count: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        self.limit = limit
+        self.count = limit
+    }
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            queue.sync(flags: .barrier) {
+                if count > 0 {
+                    count -= 1
+                    continuation.resume()
+                } else {
+                    waiters.append(continuation)
+                }
+            }
+        }
+    }
+
+    func signal() {
+        queue.sync(flags: .barrier) {
+            if waiters.isEmpty {
+                count += 1
+            } else {
+                let waiter = waiters.removeFirst()
+                waiter.resume()
+            }
+        }
     }
 }

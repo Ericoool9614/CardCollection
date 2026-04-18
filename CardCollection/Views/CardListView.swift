@@ -12,8 +12,7 @@ struct CardListView: View {
     @State private var showCSVShareSheet = false
     @State private var showSortSheet = false
     @State private var showShareView = false
-    @State private var showCSVImportPicker = false
-    @State private var csvImportURL: URL?
+    @State private var showImportPicker = false
     @State private var columns = [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 12)]
 
     var body: some View {
@@ -55,11 +54,11 @@ struct CardListView: View {
                         Label("分享卡牌", systemImage: "square.and.arrow.up")
                     }
                     Divider()
-                    Button { exportCSV() } label: {
-                        Label("导出CSV", systemImage: "square.and.arrow.up")
+                    Button { exportData() } label: {
+                        Label("导出数据", systemImage: "square.and.arrow.up")
                     }
-                    Button { showCSVImportPicker = true } label: {
-                        Label("导入CSV", systemImage: "square.and.arrow.down")
+                    Button { showImportPicker = true } label: {
+                        Label("导入数据", systemImage: "square.and.arrow.down")
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill").font(.title3)
@@ -93,12 +92,11 @@ struct CardListView: View {
         .sheet(isPresented: $showShareView) {
             NavigationStack { ShareCardView(entries: viewModel.entries + viewModel.soldEntries) }
         }
-        .fileImporter(isPresented: $showCSVImportPicker, allowedContentTypes: [UTType.commaSeparatedText], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.json, .commaSeparatedText], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    csvImportURL = url
-                    importCSV(from: url)
+                    importData(from: url)
                 }
             case .failure:
                 break
@@ -202,19 +200,24 @@ struct CardListView: View {
         }
     }
 
-    private func exportCSV() {
-        csvExportURL = CSVExportService.export(entries: viewModel.entries + viewModel.soldEntries)
-        if csvExportURL != nil { showCSVShareSheet = true }
+    private func exportData() {
+        Task {
+            csvExportURL = await ArchiveExportService.shared.export(entries: viewModel.entries + viewModel.soldEntries)
+            if csvExportURL != nil { showCSVShareSheet = true }
+        }
     }
 
-    private func importCSV(from url: URL) {
+    private func importData(from url: URL) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        guard let entries = CSVImportService.importFrom(url: url) else { return }
-        for entry in entries {
-            PersistenceController.shared.createEntry(from: entry)
+        Task {
+            if let entries = await ArchiveImportService.shared.import(from: url) {
+                for entry in entries {
+                    PersistenceController.shared.createEntry(from: entry)
+                }
+                refreshTrigger.toggle()
+            }
         }
-        refreshTrigger.toggle()
     }
 }
 

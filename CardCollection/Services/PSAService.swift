@@ -32,19 +32,25 @@ enum PSAServiceError: LocalizedError, Sendable {
     case parsingError(String)
     case notFound
     case imageDownloadFailed
+    case rateLimitExceeded
+    case quotaExhausted
 
     var errorDescription: String? {
         switch self {
         case .invalidCertNumber:
-            return "Invalid PSA certificate number"
+            return "无效的PSA认证编号"
         case .networkError(let detail):
-            return "Network error: \(detail)"
+            return "网络错误：\(detail)"
         case .parsingError(let detail):
-            return "Parse error: \(detail)"
+            return "数据解析错误：\(detail)"
         case .notFound:
-            return "PSA card not found"
+            return "未找到该PSA认证编号对应的卡牌"
         case .imageDownloadFailed:
-            return "Failed to download PSA images"
+            return "PSA图片下载失败"
+        case .rateLimitExceeded:
+            return "API请求频率超限，请稍后再试"
+        case .quotaExhausted:
+            return "API每日请求额度已用完，请明天再试或联系管理员更换Token"
         }
     }
 }
@@ -53,11 +59,47 @@ actor PSAService {
     static let shared = PSAService()
 
     private let baseURL = "https://api.psacard.com/publicapi/cert"
-    private let authToken = "Bearer vYiX8b4LmhbeKLAeEpYcf7yT7nZ6BIU7oYxkmcvd99itUW2NOE367yow1DTnDOqNHlJw1iR6JDtnwyhMRZdjpFg30NHqf-6RIWIwtucZMrjzd4PIELexSy1sMwvuq5iuDt1Q9h9xYXfByutq8c6wtaWzKU3XC46amKbNUILev31fh_ezZAMCdViaypBVpRoS-534YYunwYQXYvXDc3tgyUqNY4VE4-QV-5KUVa3XsMUYBs7vM-X4CHyc6iUd5Uw7PdnMwL6j6cth5eR-BGZSBhAGwEnxgSdWlr6b7TOkPRBt2nq8"
+
+    private let tokens: [String] = [
+        "Bearer vYiX8b4LmhbeKLAeEpYcf7yT7nZ6BIU7oYxkmcvd99itUW2NOE367yow1DTnDOqNHlJw1iR6JDtnwyhMRZdjpFg30NHqf-6RIWIwtucZMrjzd4PIELexSy1sMwvuq5iuDt1Q9h9xYXfByutq8c6wtaWzKU3XC46amKbNUILev31fh_ezZAMCdViaypBVpRoS-534YYunwYQXYvXDc3tgyUqNY4VE4-QV-5KUVa3XsMUYBs7vM-X4CHyc6iUd5Uw7PdnMwL6j6cth5eR-BGZSBhAGwEnxgSdWlr6b7TOkPRBt2nq8",
+        "Bearer KD7U1gdlIymvxJ-qzfpksiP9RiTWZU1t3NpScyuJ9NeCdAmeZwYz7UUiGqTvxRMWwhQ4ffV7J9fJovXa33df8vPLqiRCOi4mwVj8617X9vC-rHyidalLF6dtYVK1I9ERk1jtKejo1kGuOE0Gju2XvMebOzsCVsbrtyIclQrz3TTsRNztp9qtQebCJ5LLltM6UU7DoTi0gyhZRy7D0oypE3gWydsG0GIBlMBP4OTXxcKDbZpnRt_gwPR5Nm0ILXKnwhOPGjVdf0k-FtzyTDzKhmLyERPRpSA_kmMThgJqVdH-QP81"
+    ]
+
+    private var currentTokenIndex: Int = 0
+    private var tokenFailureCount: [Int: Int] = [0: 0, 1: 0]
+    private let maxFailuresPerToken = 3
+
+    private var currentToken: String {
+        tokens[currentTokenIndex]
+    }
+
+    private func rotateToken() {
+        let nextIndex = (currentTokenIndex + 1) % tokens.count
+        currentTokenIndex = nextIndex
+    }
+
+    private func markTokenFailure() {
+        tokenFailureCount[currentTokenIndex, default: 0] += 1
+        if tokenFailureCount[currentTokenIndex, default: 0] >= maxFailuresPerToken {
+            let otherIndex = (currentTokenIndex + 1) % tokens.count
+            if tokenFailureCount[otherIndex, default: 0] < maxFailuresPerToken {
+                currentTokenIndex = otherIndex
+            }
+        }
+    }
+
+    private func markTokenSuccess() {
+        tokenFailureCount[currentTokenIndex] = 0
+    }
 
     func fetchCard(certNumber: String) async throws -> PSACardResult {
         guard !certNumber.isEmpty else {
             throw PSAServiceError.invalidCertNumber
+        }
+
+        let allTokensExhausted = tokenFailureCount.values.allSatisfy { $0 >= maxFailuresPerToken }
+        if allTokensExhausted {
+            throw PSAServiceError.quotaExhausted
         }
 
         let certData = try await fetchCertData(certNumber: certNumber)
@@ -111,7 +153,7 @@ actor PSAService {
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "accept")
-        request.setValue(authToken, forHTTPHeaderField: "Authorization")
+        request.setValue(currentToken, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
 
         let data: Data
@@ -119,7 +161,6 @@ actor PSAService {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch {
-            print("PSA API network error: \(error.localizedDescription)")
             throw PSAServiceError.networkError(error.localizedDescription)
         }
 
@@ -127,8 +168,25 @@ actor PSAService {
             throw PSAServiceError.networkError("Invalid response type")
         }
 
-        print("PSA API response status: \(httpResponse.statusCode)")
-        print("PSA API response body: \(String(data: data, encoding: .utf8) ?? "nil")")
+        if httpResponse.statusCode == 429 {
+            markTokenFailure()
+            rotateToken()
+            let allTokensExhausted = tokenFailureCount.values.allSatisfy { $0 >= maxFailuresPerToken }
+            if allTokensExhausted {
+                throw PSAServiceError.quotaExhausted
+            }
+            throw PSAServiceError.rateLimitExceeded
+        }
+
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            markTokenFailure()
+            rotateToken()
+            let allTokensExhausted = tokenFailureCount.values.allSatisfy { $0 >= maxFailuresPerToken }
+            if allTokensExhausted {
+                throw PSAServiceError.quotaExhausted
+            }
+            throw PSAServiceError.quotaExhausted
+        }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             if httpResponse.statusCode == 404 {
@@ -137,10 +195,11 @@ actor PSAService {
             throw PSAServiceError.networkError("HTTP \(httpResponse.statusCode)")
         }
 
+        markTokenSuccess()
+
         do {
             return try JSONDecoder().decode(PSACertResponse.self, from: data)
         } catch {
-            print("PSA API decode error: \(error)")
             throw PSAServiceError.parsingError(error.localizedDescription)
         }
     }
@@ -153,7 +212,7 @@ actor PSAService {
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "accept")
-        request.setValue(authToken, forHTTPHeaderField: "Authorization")
+        request.setValue(currentToken, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
 
         do {
@@ -164,7 +223,6 @@ actor PSAService {
             }
             return try JSONDecoder().decode([PSAImageItem].self, from: data)
         } catch {
-            print("PSA Images fetch error: \(error.localizedDescription)")
             return []
         }
     }

@@ -108,13 +108,16 @@ struct SubCardItem: Identifiable, Hashable, Sendable {
     var allImagePaths: [String] {
         var paths: [String] = []
         if let frontPath = psaImageFrontPath, !frontPath.isEmpty {
-            paths.append(ImageStorageService.resolvePath(frontPath))
+            let resolved = ImageStorageService.resolvePath(frontPath)
+            if FileManager.default.fileExists(atPath: resolved) { paths.append(resolved) }
         }
         if let backPath = psaImageBackPath, !backPath.isEmpty {
-            paths.append(ImageStorageService.resolvePath(backPath))
+            let resolved = ImageStorageService.resolvePath(backPath)
+            if FileManager.default.fileExists(atPath: resolved) { paths.append(resolved) }
         }
         if !isPSA, let localPath = localImagePath, !localPath.isEmpty {
-            paths.append(ImageStorageService.resolvePath(localPath))
+            let resolved = ImageStorageService.resolvePath(localPath)
+            if FileManager.default.fileExists(atPath: resolved) { paths.append(resolved) }
         }
         return paths
     }

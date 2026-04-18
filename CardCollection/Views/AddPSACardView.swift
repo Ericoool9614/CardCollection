@@ -1,10 +1,12 @@
 import SwiftUI
+import AVFoundation
 
 struct AddPSACardView: View {
     @StateObject private var viewModel = AddCardEntryViewModel()
     @Environment(\.dismiss) private var dismiss
     @State private var initialCertNumber: String?
     @State private var autoFetch: Bool = false
+    @State private var showScanner = false
 
     init(certNumber: String? = nil, autoFetch: Bool = false) {
         _initialCertNumber = State(initialValue: certNumber)
@@ -33,11 +35,31 @@ struct AddPSACardView: View {
                     .disabled(!viewModel.canSave)
                     .fontWeight(.semibold)
             }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    viewModel.showBatchAdd = true
+                } label: {
+                    Image(systemName: "list.number")
+                }
+            }
         }
         .alert("提示", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("确定") { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
+        }
+        .sheet(isPresented: $showScanner) {
+            InlineScannerView { certNumber in
+                viewModel.addSubcardWithCertNumber(certNumber)
+                Task {
+                    if let idx = viewModel.subcards.lastIndex(where: { $0.psaCertNumber == certNumber }) {
+                        await viewModel.fetchPSACard(at: idx)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $viewModel.showBatchAdd) {
+            batchAddSheet
         }
         .onChange(of: viewModel.isSaved) { _, saved in
             if saved { dismiss() }
@@ -99,7 +121,15 @@ struct AddPSACardView: View {
             }
 
             HStack {
-                TextField("PSA 认证编号", text: Binding(
+                Button {
+                    showScanner = true
+                } label: {
+                    Image(systemName: "qrcode.viewfinder")
+                        .foregroundStyle(.orange)
+                }
+                .buttonStyle(.plain)
+
+                TextField("PSA编号", text: Binding(
                     get: { card.psaCertNumber ?? "" },
                     set: { viewModel.setSubcardCertNumber(id: card.id, $0) }
                 ))
@@ -108,14 +138,14 @@ struct AddPSACardView: View {
                 Button {
                     Task { await viewModel.fetchPSACard(id: card.id) }
                 } label: {
-                    if viewModel.isFetchingPSA {
+                    if viewModel.isFetching(id: card.id) {
                         ProgressView()
                     } else {
                         Text("查询").font(.caption.weight(.bold))
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(card.psaCertNumber?.isEmpty ?? true || viewModel.isFetchingPSA)
+                .disabled(card.psaCertNumber?.isEmpty ?? true || viewModel.isFetching(id: card.id))
             }
 
             if !card.name.isEmpty {
@@ -227,6 +257,168 @@ struct AddPSACardView: View {
                 .lineLimit(3...6)
         } header: {
             Label("备注", systemImage: "note.text")
+        }
+    }
+
+    private var batchAddSheet: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("批量添加评级卡")
+                        .font(.headline)
+                    Text("输入起始和结束PSA编号，系统将自动查询并添加对应卡牌")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("起始编号")
+                        TextField("如 133880400", text: $viewModel.batchStartNumber)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    HStack {
+                        Text("结束编号")
+                        TextField("如 133880450", text: $viewModel.batchEndNumber)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+                .padding(.horizontal, 20)
+
+                if viewModel.isBatchFetching {
+                    VStack(spacing: 8) {
+                        ProgressView(value: viewModel.batchProgress)
+                        Text("正在查询... \(Int(viewModel.batchProgress * 100))%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                Spacer()
+
+                Button {
+                    Task { await viewModel.batchFetchPSACards() }
+                } label: {
+                    Text("开始查询")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(viewModel.isBatchFetching ? Color.gray : Color.orange)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .disabled(viewModel.isBatchFetching || viewModel.batchStartNumber.isEmpty || viewModel.batchEndNumber.isEmpty)
+                .padding(.horizontal, 20)
+            }
+            .padding(.top, 20)
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("批量添加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { viewModel.showBatchAdd = false }
+                }
+            }
+        }
+    }
+}
+
+struct InlineScannerView: View {
+    let onScanned: (String) -> Void
+    @StateObject private var scannerService = ScannerService()
+    @State private var cameraPermissionGranted = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                if cameraPermissionGranted {
+                    VStack {
+                        ZStack {
+                            ScannerPreviewView(session: scannerService.captureSession)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                            if scannerService.isScanning {
+                                VStack {
+                                    Spacer()
+                                    Text("正在扫描...")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.white)
+                                        .padding(8)
+                                        .background(Color.black.opacity(0.6))
+                                        .clipShape(Capsule())
+                                    Spacer()
+                                }
+                            }
+                        }
+                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange, lineWidth: 2))
+                        .padding()
+
+                        if let certNumber = scannerService.scannedCertNumber {
+                            VStack(spacing: 12) {
+                                Label("检测到编号：\(certNumber)", systemImage: "checkmark.circle.fill")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.green)
+
+                                HStack(spacing: 16) {
+                                    Button("添加并继续扫描") {
+                                        onScanned(certNumber)
+                                        scannerService.scannedCertNumber = nil
+                                        scannerService.startScanning()
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.orange)
+
+                                    Button("完成") {
+                                        onScanned(certNumber)
+                                        dismiss()
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal)
+                        }
+                    }
+                } else {
+                    VStack(spacing: 20) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                        Text("需要相机权限")
+                            .font(.title3.weight(.bold))
+                        Button("授予权限") {
+                            Task {
+                                cameraPermissionGranted = await scannerService.requestCameraPermission()
+                                if cameraPermissionGranted { scannerService.startScanning() }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                    }
+                }
+            }
+            .navigationTitle("扫码")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
+            .onAppear {
+                if scannerService.checkCameraPermission() {
+                    cameraPermissionGranted = true
+                    scannerService.startScanning()
+                }
+            }
         }
     }
 }

@@ -80,7 +80,14 @@ final class CardCollectionTests: XCTestCase {
     }
 
     func testPSAServiceFetchAndSave() async throws {
-        let result = try await PSAService.shared.fetchCard(certNumber: "133880310")
+        let result: PSACardResult
+        do {
+            result = try await PSAService.shared.fetchCard(certNumber: "133880310")
+        } catch PSAServiceError.rateLimitExceeded {
+            throw XCTSkip("API请求频率超限，跳过测试")
+        } catch PSAServiceError.quotaExhausted {
+            throw XCTSkip("API每日额度已用完，跳过测试")
+        }
 
         XCTAssertEqual(result.cardName, "PIKACHU")
         XCTAssertEqual(result.cardSet, "POKEMON JAPANESE M-P PROMO")
@@ -235,6 +242,14 @@ final class CardCollectionTests: XCTestCase {
     // MARK: - Feature 1: Image Download
 
     func testSubCardAllImagePathsPSA() async throws {
+        let docsDir = ImageStorageService.documentsDirectory
+        let frontResolved = docsDir.appendingPathComponent("PSAImages/PSA_133880310_front.jpg").path
+        let backResolved = docsDir.appendingPathComponent("PSAImages/PSA_133880310_back.jpg").path
+        try? FileManager.default.createDirectory(at: docsDir.appendingPathComponent("PSAImages"), withIntermediateDirectories: true)
+        let data = UIImage(systemName: "star")!.jpegData(compressionQuality: 0.5)!
+        try data.write(to: URL(fileURLWithPath: frontResolved))
+        try data.write(to: URL(fileURLWithPath: backResolved))
+
         let sub = SubCardItem(
             id: UUID(), name: "PIKACHU", set: "SET1", number: "020",
             isPSA: true, psaCertNumber: "133880310", grade: 10,
@@ -248,9 +263,18 @@ final class CardCollectionTests: XCTestCase {
 
         let paths = sub.allImagePaths
         XCTAssertEqual(paths.count, 2, "PSA card should have front and back image paths")
+
+        try? FileManager.default.removeItem(atPath: frontResolved)
+        try? FileManager.default.removeItem(atPath: backResolved)
     }
 
     func testSubCardAllImagePathsRaw() async throws {
+        let docsDir = ImageStorageService.documentsDirectory
+        let localResolved = docsDir.appendingPathComponent("LocalImages/Local_test.jpg").path
+        try? FileManager.default.createDirectory(at: docsDir.appendingPathComponent("LocalImages"), withIntermediateDirectories: true)
+        let data = UIImage(systemName: "star")!.jpegData(compressionQuality: 0.5)!
+        try data.write(to: URL(fileURLWithPath: localResolved))
+
         let sub = SubCardItem(
             id: UUID(), name: "My Raw Card", set: "SET", number: "001",
             isPSA: false, psaCertNumber: nil, grade: nil,
@@ -263,6 +287,8 @@ final class CardCollectionTests: XCTestCase {
 
         let paths = sub.allImagePaths
         XCTAssertEqual(paths.count, 1, "Raw card should have 1 local image path")
+
+        try? FileManager.default.removeItem(atPath: localResolved)
     }
 
     // MARK: - Feature 2: Sorting
@@ -574,5 +600,44 @@ final class CardCollectionTests: XCTestCase {
         XCTAssertTrue(entry.isSold)
         XCTAssertEqual(entry.profit, 100.0)
         XCTAssertEqual(entry.profitDisplay, "+¥100.00")
+    }
+
+    // MARK: - Search by PSA Cert Number
+
+    func testSearchByPSACertNumber() async throws {
+        let sub1 = SubCardItem(
+            id: UUID(), name: "PIKACHU", isPSA: true,
+            psaCertNumber: "133880310", grade: 10,
+            gradeDescription: "GEM MT 10", sortOrder: 0
+        )
+        let sub2 = SubCardItem(
+            id: UUID(), name: "CHARIZARD", isPSA: true,
+            psaCertNumber: "999888777", grade: 9,
+            gradeDescription: "MINT 9", sortOrder: 0
+        )
+
+        let entry1 = CardEntryItem(
+            id: UUID(), nickname: "Entry1", subcards: [sub1],
+            createdAt: Date(), updatedAt: Date()
+        )
+        let entry2 = CardEntryItem(
+            id: UUID(), nickname: "Entry2", subcards: [sub2],
+            createdAt: Date(), updatedAt: Date()
+        )
+
+        let items = [entry1, entry2]
+
+        let filtered = items.filter { entry in
+            entry.nickname?.localizedCaseInsensitiveContains("133880310") ?? false ||
+            entry.subcards.contains {
+                $0.name.localizedCaseInsensitiveContains("133880310") ||
+                ($0.set?.localizedCaseInsensitiveContains("133880310") ?? false) ||
+                ($0.number?.localizedCaseInsensitiveContains("133880310") ?? false) ||
+                ($0.psaCertNumber?.localizedCaseInsensitiveContains("133880310") ?? false)
+            }
+        }
+
+        XCTAssertEqual(filtered.count, 1, "Should find entry by PSA cert number")
+        XCTAssertEqual(filtered.first?.subcards.first?.psaCertNumber, "133880310")
     }
 }

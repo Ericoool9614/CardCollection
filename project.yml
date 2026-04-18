@@ -25,6 +25,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_NSCameraUsageDescription: "This app needs camera access to scan QR codes on PSA cards"
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "需要访问相册以保存卡牌图片"
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "需要访问相册以保存卡牌图片"
         PRODUCT_BUNDLE_IDENTIFIER: com.cardcollection.app
         PRODUCT_NAME: CardCollection
         SWIFT_EMIT_LOC_STRINGS: YES

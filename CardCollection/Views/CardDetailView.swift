@@ -3,8 +3,8 @@ import SwiftUI
 struct CardDetailView: View {
     @StateObject private var viewModel: CardDetailViewModel
     @State private var showingEdit = false
-    @State private var showImageShareSheet = false
-    @State private var shareImagePaths: [String] = []
+    @State private var showSaveResult = false
+    @State private var saveResultMessage = ""
     @Environment(\.dismiss) private var dismiss
 
     init(entry: CardEntryItem) {
@@ -37,10 +37,10 @@ struct CardDetailView: View {
         .sheet(isPresented: $showingEdit) {
             NavigationStack { EditCardView(entry: viewModel.entry) }
         }
-        .sheet(isPresented: $showImageShareSheet) {
-            if !shareImagePaths.isEmpty {
-                ImageShareSheet(imagePaths: shareImagePaths)
-            }
+        .alert("保存结果", isPresented: $showSaveResult) {
+            Button("好的", role: .cancel) {}
+        } message: {
+            Text(saveResultMessage)
         }
     }
 
@@ -77,14 +77,36 @@ struct CardDetailView: View {
             VStack(spacing: 12) {
                 ForEach(viewModel.entry.subcards) { card in
                     SubCardRow(card: card) {
-                        shareImagePaths = card.allImagePaths
-                        if !shareImagePaths.isEmpty {
-                            showImageShareSheet = true
-                        }
+                        saveCardImagesToAlbum(card)
                     }
                 }
             }
         }
+    }
+
+    private func saveCardImagesToAlbum(_ card: SubCardItem) {
+        let paths = card.allImagePaths
+        guard !paths.isEmpty else {
+            saveResultMessage = "没有可保存的图片"
+            showSaveResult = true
+            return
+        }
+        var savedCount = 0
+        var failCount = 0
+        for path in paths {
+            if let image = UIImage(contentsOfFile: path) {
+                UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                savedCount += 1
+            } else {
+                failCount += 1
+            }
+        }
+        if failCount == 0 {
+            saveResultMessage = "已保存 \(savedCount) 张图片到相册"
+        } else {
+            saveResultMessage = "保存 \(savedCount) 张成功，\(failCount) 张失败"
+        }
+        showSaveResult = true
     }
 
     private var purchaseSection: some View {
@@ -136,7 +158,7 @@ struct CardDetailView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(Array(images.prefix(5).enumerated()), id: \.offset) { index, path in
+                        ForEach(Array(images.enumerated()), id: \.offset) { index, path in
                             if let img = UIImage(contentsOfFile: path) {
                                 Image(uiImage: img)
                                     .resizable()
@@ -247,22 +269,6 @@ struct SubCardRow: View {
         default: return .red
         }
     }
-}
-
-struct ImageShareSheet: UIViewControllerRepresentable {
-    let imagePaths: [String]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        var items: [Any] = []
-        for path in imagePaths {
-            if let image = UIImage(contentsOfFile: path) {
-                items.append(image)
-            }
-        }
-        return UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct DetailSection<Content: View>: View {

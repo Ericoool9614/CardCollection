@@ -42,7 +42,8 @@ class CardListViewModel: ObservableObject {
                 entry.subcards.contains {
                     $0.name.localizedCaseInsensitiveContains(searchText) ||
                     ($0.set?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-                    ($0.number?.localizedCaseInsensitiveContains(searchText) ?? false)
+                    ($0.number?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+                    ($0.psaCertNumber?.localizedCaseInsensitiveContains(searchText) ?? false)
                 }
             }
         }

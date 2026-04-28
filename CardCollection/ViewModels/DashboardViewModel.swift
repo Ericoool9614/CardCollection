@@ -10,8 +10,13 @@ class DashboardViewModel: ObservableObject {
     @Published var nonPSACount: Int = 0
     @Published var soldCount: Int = 0
     @Published var unsoldCount: Int = 0
+    @Published var languageCounts: [String: Int] = [:]
 
-    private let persistence = PersistenceController.shared
+    private let persistence: PersistenceController
+
+    init(persistence: PersistenceController = .shared) {
+        self.persistence = persistence
+    }
 
     func loadDashboard() {
         let entries = persistence.fetchAllEntries().map { $0.toItem() }
@@ -27,6 +32,12 @@ class DashboardViewModel: ObservableObject {
         totalProfit = entries.filter { $0.isSold }.reduce(0) {
             $0 + (($1.sellPrice ?? 0) - ($1.purchasePrice ?? 0))
         }
+
+        var langCounts: [String: Int] = [:]
+        for entry in entries {
+            langCounts[entry.language, default: 0] += 1
+        }
+        languageCounts = langCounts
     }
 
     func formatted(_ value: Double) -> String {

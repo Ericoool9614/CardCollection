@@ -55,12 +55,17 @@ struct CardDetailView: View {
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 8) {
-                if viewModel.entry.hasPSA {
-                    Text("评级").font(.caption.weight(.bold))
+                if viewModel.entry.hasPSA, let firstCard = viewModel.entry.primaryCard {
+                    Text(firstCard.gradingCompany).font(.caption.weight(.bold))
                         .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(Color.orange.opacity(0.15)).foregroundStyle(.orange)
+                        .background(firstCard.gradingCompanyEnum.displayColor.opacity(0.15))
+                        .foregroundStyle(firstCard.gradingCompanyEnum.displayColor)
                         .clipShape(Capsule())
                 }
+                Text(viewModel.entry.language).font(.caption.weight(.bold))
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.15)).foregroundStyle(.blue)
+                    .clipShape(Capsule())
                 if viewModel.entry.isSold {
                     Text("已出售").font(.caption.weight(.bold))
                         .padding(.horizontal, 10).padding(.vertical, 4)
@@ -220,11 +225,17 @@ struct SubCardRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(card.isPSA ? Color.orange.opacity(0.15) : Color.purple.opacity(0.15))
+                    .fill(Color(.systemGray6))
                     .frame(width: 50, height: 70)
                     .overlay {
-                        Image(systemName: card.isPSA ? "shield.checkered" : "rectangle.on.rectangle.angled")
-                            .font(.caption).foregroundStyle(card.isPSA ? .orange : .purple)
+                        VStack(spacing: 2) {
+                            Image(systemName: "photo")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text("未添加图片")
+                                .font(.system(size: 7))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
             }
 
@@ -262,12 +273,15 @@ struct SubCardRow: View {
 
     private var gradeColor: Color {
         guard card.isPSA, let grade = card.grade else { return .purple }
-        switch grade {
-        case 10: return .green
-        case 9: return .blue
-        case 8: return .orange
-        default: return .red
+        if let gradeInt = Int(grade) {
+            switch gradeInt {
+            case 10: return .green
+            case 9: return .blue
+            case 8: return .orange
+            default: return .red
+            }
         }
+        return .purple
     }
 }
 

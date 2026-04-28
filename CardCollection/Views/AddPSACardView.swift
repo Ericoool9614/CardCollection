@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import PhotosUI
 
 struct AddPSACardView: View {
     @StateObject private var viewModel = AddCardEntryViewModel()
@@ -7,6 +8,7 @@ struct AddPSACardView: View {
     @State private var initialCertNumber: String?
     @State private var autoFetch: Bool = false
     @State private var showScanner = false
+    @State private var selectedPhotoItems: [UUID: PhotosPickerItem] = [:]
 
     init(certNumber: String? = nil, autoFetch: Bool = false) {
         _initialCertNumber = State(initialValue: certNumber)
@@ -79,8 +81,17 @@ struct AddPSACardView: View {
     private var nicknameSection: some View {
         Section {
             TextField("昵称（可选）", text: $viewModel.nickname)
+            languagePicker
         } header: {
             Label("条目名称", systemImage: "tag")
+        }
+    }
+
+    private var languagePicker: some View {
+        Picker("语言版本", selection: $viewModel.language) {
+            ForEach(CardLanguage.allCases, id: \.rawValue) { lang in
+                Text(lang.rawValue).tag(lang.rawValue)
+            }
         }
     }
 
@@ -120,6 +131,48 @@ struct AddPSACardView: View {
                 }
             }
 
+            TextField("卡名 *", text: Binding(
+                get: { card.name },
+                set: { viewModel.setSubcardName(id: card.id, $0) }
+            ))
+
+            Picker("评级公司", selection: Binding(
+                get: { card.gradingCompany.isEmpty ? GradingCompany.default.rawValue : card.gradingCompany },
+                set: { viewModel.setSubcardGradingCompany(id: card.id, $0) }
+            )) {
+                ForEach(GradingCompany.allCases, id: \.rawValue) { company in
+                    Text(company.rawValue).tag(company.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if card.gradingCompanyEnum.isFreeTextInput {
+                HStack {
+                    Text("分数 *")
+                    Spacer()
+                    TextField("输入评级分数", text: Binding(
+                        get: { card.grade ?? "" },
+                        set: { viewModel.setSubcardGrade(id: card.id, $0.isEmpty ? nil : $0) }
+                    ))
+                    .multilineTextAlignment(.trailing)
+                }
+            } else {
+                let validGrade: String = {
+                    guard let g = card.grade, !g.isEmpty else { return "" }
+                    return card.gradingCompanyEnum.gradeOptions.contains(g) ? g : ""
+                }()
+                Picker("分数 *", selection: Binding(
+                    get: { validGrade },
+                    set: { viewModel.setSubcardGrade(id: card.id, $0.isEmpty ? nil : $0) }
+                )) {
+                    Text("请选择").tag("")
+                    ForEach(card.gradingCompanyEnum.gradeOptions, id: \.self) { option in
+                        Text(option).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
             HStack {
                 Button {
                     showScanner = true
@@ -129,7 +182,7 @@ struct AddPSACardView: View {
                 }
                 .buttonStyle(.plain)
 
-                TextField("PSA编号", text: Binding(
+                TextField("PSA编号（可选）", text: Binding(
                     get: { card.psaCertNumber ?? "" },
                     set: { viewModel.setSubcardCertNumber(id: card.id, $0) }
                 ))
@@ -148,6 +201,8 @@ struct AddPSACardView: View {
                 .disabled(card.psaCertNumber?.isEmpty ?? true || viewModel.isFetching(id: card.id))
             }
 
+            psaCardImageSection(card: card)
+
             if !card.name.isEmpty {
                 cardDetailPreview(card: card)
             }
@@ -156,53 +211,114 @@ struct AddPSACardView: View {
     }
 
     @ViewBuilder
-    private func cardDetailPreview(card: SubCardItem) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                if let frontPath = card.psaImageFrontPath, !frontPath.isEmpty {
-                    let resolved = ImageStorageService.resolvePath(frontPath)
-                    if FileManager.default.fileExists(atPath: resolved),
-                       let uiImage = UIImage(contentsOfFile: resolved) {
+    private func psaCardImageSection(card: SubCardItem) -> some View {
+        if let frontPath = card.psaImageFrontPath, !frontPath.isEmpty {
+            let resolved = ImageStorageService.resolvePath(frontPath)
+            if FileManager.default.fileExists(atPath: resolved),
+               let uiImage = UIImage(contentsOfFile: resolved) {
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 60, height: 84)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+
+                        if let backPath = card.psaImageBackPath, !backPath.isEmpty {
+                            let backResolved = ImageStorageService.resolvePath(backPath)
+                            if FileManager.default.fileExists(atPath: backResolved),
+                               let backImage = UIImage(contentsOfFile: backResolved) {
+                                Image(uiImage: backImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 60, height: 84)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                            }
+                        }
+                        Spacer()
                     }
                 }
+            } else {
+                noImagePlaceholder
+            }
+        } else if let localPath = card.localImagePath, !localPath.isEmpty {
+            let resolved = ImageStorageService.resolvePath(localPath)
+            if FileManager.default.fileExists(atPath: resolved),
+               let uiImage = UIImage(contentsOfFile: resolved) {
+                VStack(spacing: 8) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                if let backPath = card.psaImageBackPath, !backPath.isEmpty {
-                    let resolved = ImageStorageService.resolvePath(backPath)
-                    if FileManager.default.fileExists(atPath: resolved),
-                       let uiImage = UIImage(contentsOfFile: resolved) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 60, height: 84)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                    Button("移除图片", role: .destructive) {
+                        if let idx = viewModel.subcards.firstIndex(where: { $0.id == card.id }) {
+                            Task { await viewModel.removeLocalImage(at: idx) }
+                        }
+                    }
+                    .font(.caption)
+                }
+            } else {
+                noImagePlaceholder
+            }
+        } else {
+            PhotosPicker(selection: Binding(
+                get: { selectedPhotoItems[card.id] },
+                set: { newItem in
+                    guard let newItem else { return }
+                    selectedPhotoItems[card.id] = newItem
+                    Task {
+                        if let data = try? await newItem.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            if let idx = viewModel.subcards.firstIndex(where: { $0.id == card.id }) {
+                                await viewModel.setLocalImage(at: idx, image: image)
+                            }
+                        }
+                        selectedPhotoItems.removeValue(forKey: card.id)
                     }
                 }
-
-                if card.psaImageFrontPath == nil && card.psaImageBackPath == nil {
-                    Spacer()
-                }
+            ), matching: .images) {
+                Image(systemName: "photo.badge.plus")
+                    .font(.title3)
+                    .foregroundStyle(.orange)
+                    .frame(width: 44, height: 44)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-
-            VStack(alignment: .leading, spacing: 3) {
-                LabeledContent("卡名", value: card.name)
-                if let set = card.set { LabeledContent("系列", value: set) }
-                if let number = card.number { LabeledContent("编号", value: number) }
-                if let year = card.year { LabeledContent("年份", value: year) }
-                if let grade = card.grade { LabeledContent("评级", value: "PSA \(grade)") }
-                if let desc = card.gradeDescription { LabeledContent("评级描述", value: desc) }
-                if let pop = card.population, pop > 0 { LabeledContent("Pop", value: "\(pop)") }
-                if let variety = card.variety { LabeledContent("变体", value: variety) }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
+    }
+
+    private var noImagePlaceholder: some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 4) {
+                Image(systemName: "photo")
+                    .font(.title3)
+                    .foregroundStyle(.tertiary)
+                Text("该卡未添加图片")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private func cardDetailPreview(card: SubCardItem) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let set = card.set { LabeledContent("系列", value: set) }
+            if let number = card.number { LabeledContent("编号", value: number) }
+            if let year = card.year { LabeledContent("年份", value: year) }
+            if let desc = card.gradeDescription { LabeledContent("评级描述", value: desc) }
+            if let pop = card.population, pop > 0 { LabeledContent("Pop", value: "\(pop)") }
+            if let variety = card.variety { LabeledContent("变体", value: variety) }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     private var addCardButton: some View {

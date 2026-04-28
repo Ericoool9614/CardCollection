@@ -6,6 +6,7 @@ public class CardEntry: NSManagedObject {
     @NSManaged public var askingPrice: Double
     @NSManaged public var createdAt: Date?
     @NSManaged public var id: UUID?
+    @NSManaged public var language: String?
     @NSManaged public var nickname: String?
     @NSManaged public var note: String?
     @NSManaged public var purchaseDate: Date?
@@ -35,8 +36,9 @@ public class CardEntry: NSManagedObject {
 @objc(SubCard)
 public class SubCard: NSManagedObject {
     @NSManaged public var category: String?
-    @NSManaged public var grade: Int32
+    @NSManaged public var grade: String?
     @NSManaged public var gradeDescription: String?
+    @NSManaged public var gradingCompany: String?
     @NSManaged public var id: UUID?
     @NSManaged public var isPSA: Bool
     @NSManaged public var labelType: String?
@@ -96,7 +98,8 @@ extension CardEntry {
             note: note,
             createdAt: createdAt ?? Date(),
             updatedAt: updatedAt ?? Date(),
-            askingPrice: askingPrice > 0 ? askingPrice : nil
+            askingPrice: askingPrice > 0 ? askingPrice : nil,
+            language: language ?? CardLanguage.default.rawValue
         )
     }
 
@@ -110,13 +113,15 @@ extension CardEntry {
         note = item.note
         updatedAt = Date()
         askingPrice = item.askingPrice ?? 0
+        language = item.language
     }
 }
 
 extension SubCard {
     var gradeDisplay: String {
+        let company = gradingCompany ?? GradingCompany.default.rawValue
         if isPSA, let desc = gradeDescription, !desc.isEmpty { return desc }
-        if isPSA, grade > 0 { return "PSA \(grade)" }
+        if isPSA, let g = grade, !g.isEmpty { return "\(company) \(g)" }
         return "Raw"
     }
 
@@ -145,7 +150,7 @@ extension SubCard {
             number: number,
             isPSA: isPSA,
             psaCertNumber: psaCertNumber,
-            grade: grade > 0 ? Int(grade) : nil,
+            grade: grade,
             population: population > 0 ? Int(population) : nil,
             populationHigher: populationHigher > 0 ? Int(populationHigher) : nil,
             psaImageFrontPath: psaImageFrontPath,
@@ -156,7 +161,8 @@ extension SubCard {
             gradeDescription: gradeDescription,
             category: category,
             labelType: labelType,
-            sortOrder: Int(sortOrder)
+            sortOrder: Int(sortOrder),
+            gradingCompany: gradingCompany ?? GradingCompany.default.rawValue
         )
     }
 
@@ -167,7 +173,7 @@ extension SubCard {
         number = item.number
         isPSA = item.isPSA
         psaCertNumber = item.psaCertNumber
-        grade = item.grade.map { Int32($0) } ?? 0
+        grade = item.grade
         population = item.population.map { Int32($0) } ?? 0
         populationHigher = item.populationHigher.map { Int32($0) } ?? 0
         psaImageFrontPath = item.psaImageFrontPath
@@ -179,5 +185,6 @@ extension SubCard {
         category = item.category
         labelType = item.labelType
         sortOrder = Int32(item.sortOrder)
+        gradingCompany = item.gradingCompany
     }
 }

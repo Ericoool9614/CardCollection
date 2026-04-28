@@ -1,4 +1,44 @@
 import Foundation
+import SwiftUI
+
+enum GradingCompany: String, CaseIterable, Sendable {
+    case psa = "PSA"
+    case ccic = "CCIC"
+    case bgs = "BGS"
+    case other = "其他"
+
+    static let `default` = GradingCompany.psa
+
+    var gradeOptions: [String] {
+        switch self {
+        case .psa: return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        case .ccic: return ["银10", "金10"]
+        case .bgs: return ["9.5", "10", "黑10"]
+        case .other: return []
+        }
+    }
+
+    var isFreeTextInput: Bool { self == .other }
+
+    var displayColor: SwiftUI.Color {
+        switch self {
+        case .psa: return .orange
+        case .ccic: return .red
+        case .bgs: return .blue
+        case .other: return .gray
+        }
+    }
+}
+
+enum CardLanguage: String, CaseIterable, Sendable {
+    case japanese = "日版"
+    case english = "美版"
+    case simplifiedChinese = "简中"
+    case traditionalChinese = "繁中"
+    case other = "其他"
+
+    static let `default` = CardLanguage.japanese
+}
 
 struct CardEntryItem: Identifiable, Hashable, Sendable {
     static func == (lhs: CardEntryItem, rhs: CardEntryItem) -> Bool { lhs.id == rhs.id }
@@ -15,6 +55,7 @@ struct CardEntryItem: Identifiable, Hashable, Sendable {
     var createdAt: Date
     var updatedAt: Date
     var askingPrice: Double?
+    var language: String = CardLanguage.default.rawValue
 
     var displayName: String {
         if let nick = nickname, !nick.isEmpty { return nick }
@@ -70,7 +111,7 @@ struct SubCardItem: Identifiable, Hashable, Sendable {
     var number: String?
     var isPSA: Bool
     var psaCertNumber: String?
-    var grade: Int?
+    var grade: String?
     var population: Int?
     var populationHigher: Int?
     var psaImageFrontPath: String?
@@ -82,11 +123,22 @@ struct SubCardItem: Identifiable, Hashable, Sendable {
     var category: String?
     var labelType: String?
     var sortOrder: Int
+    var gradingCompany: String = GradingCompany.default.rawValue
 
     var gradeDisplay: String {
         if isPSA, let desc = gradeDescription, !desc.isEmpty { return desc }
-        if isPSA, let g = grade { return "PSA \(g)" }
+        if isPSA, let g = grade { return "\(gradingCompanyEnum.rawValue) \(g)" }
         return "裸卡"
+    }
+
+    var gradingCompanyEnum: GradingCompany {
+        let raw = gradingCompany.isEmpty ? GradingCompany.default.rawValue : gradingCompany
+        return GradingCompany(rawValue: raw) ?? .default
+    }
+
+    var gradeInt: Int? {
+        guard let g = grade else { return nil }
+        return Int(g)
     }
 
     var hasFrontImage: Bool {

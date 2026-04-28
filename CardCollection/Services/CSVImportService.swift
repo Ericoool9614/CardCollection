@@ -7,6 +7,7 @@ struct CSVImportService {
         guard lines.count > 1 else { return nil }
 
         let header = parseCSVLine(lines[0])
+        let columnMap = buildColumnMap(header: header)
 
         var entryMap: [String: (entry: CardEntryItem, subcards: [SubCardItem])] = [:]
 
@@ -14,24 +15,46 @@ struct CSVImportService {
             let fields = parseCSVLine(lines[i])
             guard fields.count >= 6 else { continue }
 
-            let nickname = fields[safe: 0] ?? ""
-            let name = fields[safe: 1] ?? ""
-            let set = fields[safe: 2]?.isEmpty == true ? nil : fields[safe: 2]
-            let number = fields[safe: 3]?.isEmpty == true ? nil : fields[safe: 3]
-            let isPSAStr = fields[safe: 4] ?? "否"
+            let nickname = fields[safe: columnMap["昵称"]] ?? ""
+            let name = fields[safe: columnMap["卡名"]] ?? ""
+            let set = fields[safe: columnMap["系列"]]?.isEmpty == true ? nil : fields[safe: columnMap["系列"]]
+            let number = fields[safe: columnMap["编号"]]?.isEmpty == true ? nil : fields[safe: columnMap["编号"]]
+            let isPSAStr = fields[safe: columnMap["是否评级"]] ?? "否"
             let isPSA = isPSAStr == "是"
-            let gradeStr = fields[safe: 5] ?? ""
-            let popStr = fields[safe: 6] ?? ""
-            let year = fields[safe: 7]?.isEmpty == true ? nil : fields[safe: 7]
-            let variety = fields[safe: 8]?.isEmpty == true ? nil : fields[safe: 8]
-            let purchaseDateStr = fields[safe: 9] ?? ""
-            let purchasePriceStr = fields[safe: 10] ?? ""
-            let sellDateStr = fields[safe: 11] ?? ""
-            let sellPriceStr = fields[safe: 12] ?? ""
-            let profitStr = fields[safe: 13] ?? ""
-            let notes = fields[safe: 14]?.isEmpty == true ? nil : fields[safe: 14]
-            let frontImagePath = fields[safe: 15]?.isEmpty == true ? nil : fields[safe: 15]
-            let backImagePath = fields[safe: 16]?.isEmpty == true ? nil : fields[safe: 16]
+
+            let gradingCompany: String
+            if let col = columnMap["评级公司"], let val = fields[safe: col], !val.isEmpty {
+                gradingCompany = val
+            } else {
+                gradingCompany = isPSA ? GradingCompany.default.rawValue : GradingCompany.default.rawValue
+            }
+
+            let gradeStr: String
+            if let col = columnMap["评级分数"], let val = fields[safe: col] {
+                gradeStr = val
+            } else if let col = columnMap["评级"], let val = fields[safe: col] {
+                gradeStr = val
+            } else {
+                gradeStr = ""
+            }
+
+            let gradeDescriptionStr: String
+            if let col = columnMap["评级描述"], let val = fields[safe: col] {
+                gradeDescriptionStr = val
+            } else {
+                gradeDescriptionStr = ""
+            }
+
+            let popStr = fields[safe: columnMap["Pop"]] ?? ""
+            let year = fields[safe: columnMap["年份"]]?.isEmpty == true ? nil : fields[safe: columnMap["年份"]]
+            let variety = fields[safe: columnMap["变体"]]?.isEmpty == true ? nil : fields[safe: columnMap["变体"]]
+            let purchaseDateStr = fields[safe: columnMap["购买日期"]] ?? ""
+            let purchasePriceStr = fields[safe: columnMap["购买价格(¥)"]] ?? ""
+            let sellDateStr = fields[safe: columnMap["出售日期"]] ?? ""
+            let sellPriceStr = fields[safe: columnMap["出售价格(¥)"]] ?? ""
+            let notes = fields[safe: columnMap["备注"]]?.isEmpty == true ? nil : fields[safe: columnMap["备注"]]
+            let frontImagePath = fields[safe: columnMap["正面图片路径"]]?.isEmpty == true ? nil : fields[safe: columnMap["正面图片路径"]]
+            let backImagePath = fields[safe: columnMap["背面图片路径"]]?.isEmpty == true ? nil : fields[safe: columnMap["背面图片路径"]]
 
             let grade = parseGrade(from: gradeStr)
             let population = Int(popStr)
@@ -39,6 +62,8 @@ struct CSVImportService {
             let sellPrice = Double(sellPriceStr)
             let purchaseDate = parseDate(from: purchaseDateStr)
             let sellDate = parseDate(from: sellDateStr)
+
+            let gradeDescription: String? = gradeDescriptionStr.isEmpty ? nil : gradeDescriptionStr
 
             let subcard = SubCardItem(
                 id: UUID(),
@@ -55,10 +80,11 @@ struct CSVImportService {
                 localImagePath: nil,
                 year: year,
                 variety: variety,
-                gradeDescription: gradeStr.isEmpty ? nil : gradeStr,
+                gradeDescription: gradeDescription,
                 category: nil,
                 labelType: nil,
-                sortOrder: 0
+                sortOrder: 0,
+                gradingCompany: isPSA ? gradingCompany : GradingCompany.default.rawValue
             )
 
             let key = nickname + "_" + (purchaseDateStr) + "_" + (purchasePriceStr)
@@ -80,7 +106,8 @@ struct CSVImportService {
                     note: notes,
                     createdAt: Date(),
                     updatedAt: Date(),
-                    askingPrice: nil
+                    askingPrice: nil,
+                    language: CardLanguage.default.rawValue
                 )
                 entryMap[key] = (entry: entry, subcards: [subcard])
             }
@@ -91,6 +118,15 @@ struct CSVImportService {
             entry.subcards = data.subcards
             return entry
         }
+    }
+
+    private static func buildColumnMap(header: [String]) -> [String: Int] {
+        var map: [String: Int] = [:]
+        for (index, col) in header.enumerated() {
+            let trimmed = col.trimmingCharacters(in: .whitespaces)
+            map[trimmed] = index
+        }
+        return map
     }
 
     private static func parseCSVLine(_ line: String) -> [String] {
@@ -112,17 +148,20 @@ struct CSVImportService {
         return fields
     }
 
-    private static func parseGrade(from str: String) -> Int? {
-        let gradeMap: [String: Int] = [
-            "GEM MT 10": 10, "MINT 9": 9, "NM-MT 8": 8, "NM 7": 7,
-            "EXMT 6": 6, "EX 5": 5, "VG-EX 4": 4, "VG 3": 3,
-            "GOOD 2": 2, "PR 1": 1
+    private static func parseGrade(from str: String) -> String? {
+        let gradeMap: [String: String] = [
+            "GEM MT 10": "10", "MINT 9": "9", "NM-MT 8": "8", "NM 7": "7",
+            "EXMT 6": "6", "EX 5": "5", "VG-EX 4": "4", "VG 3": "3",
+            "GOOD 2": "2", "PR 1": "1"
         ]
         if let g = gradeMap[str] { return g }
         if str.hasPrefix("PSA ") {
-            return Int(str.replacingOccurrences(of: "PSA ", with: ""))
+            let numStr = str.replacingOccurrences(of: "PSA ", with: "")
+            if Int(numStr) != nil { return numStr }
         }
-        return Int(str)
+        if Int(str) != nil { return str }
+        if !str.isEmpty { return str }
+        return nil
     }
 
     private static func parseDate(from str: String) -> Date? {
@@ -136,7 +175,8 @@ struct CSVImportService {
 }
 
 extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
+    subscript(safe index: Int?) -> Element? {
+        guard let index else { return nil }
+        return indices.contains(index) ? self[index] : nil
     }
 }

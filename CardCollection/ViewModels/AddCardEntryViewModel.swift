@@ -20,11 +20,14 @@ class AddCardEntryViewModel: ObservableObject {
     @Published var batchEndNumber = ""
     @Published var batchProgress: Double = 0
     @Published var isBatchFetching = false
+    @Published var language: String = CardLanguage.default.rawValue
 
     private let persistence = PersistenceController.shared
 
     var canSave: Bool {
-        !subcards.isEmpty && subcards.allSatisfy { !$0.name.isEmpty }
+        !subcards.isEmpty && subcards.allSatisfy { card in
+            !card.name.isEmpty && (!card.isPSA || card.grade != nil)
+        }
     }
 
     func isFetching(id: UUID) -> Bool {
@@ -113,6 +116,38 @@ class AddCardEntryViewModel: ObservableObject {
         subcards[index] = card
     }
 
+    func setSubcardName(id: UUID, _ name: String) {
+        guard let idx = subcards.firstIndex(where: { $0.id == id }) else { return }
+        var card = subcards[idx]
+        card.name = name
+        subcards[idx] = card
+    }
+
+    func setSubcardGrade(id: UUID, _ grade: String?) {
+        guard let idx = subcards.firstIndex(where: { $0.id == id }) else { return }
+        var card = subcards[idx]
+        card.grade = grade
+        if let g = grade, !g.isEmpty {
+            card.gradeDescription = "\(card.gradingCompany) \(g)"
+        }
+        subcards[idx] = card
+    }
+
+    func setSubcardGradingCompany(id: UUID, _ company: String) {
+        guard let idx = subcards.firstIndex(where: { $0.id == id }) else { return }
+        var card = subcards[idx]
+        card.gradingCompany = company
+        if let g = card.grade, !g.isEmpty {
+            card.gradeDescription = "\(company) \(g)"
+        }
+        if GradingCompany(rawValue: company)?.isFreeTextInput == true {
+            card.grade = nil
+        } else if card.grade == nil || !GradingCompany(rawValue: company)!.gradeOptions.contains(card.grade!) {
+            card.grade = nil
+        }
+        subcards[idx] = card
+    }
+
     func setLocalImage(at index: Int, image: UIImage) async {
         guard index < subcards.count else { return }
         let cardId = subcards[index].id
@@ -162,7 +197,7 @@ class AddCardEntryViewModel: ObservableObject {
             card.name = result.cardName
             card.set = result.cardSet
             card.number = result.cardNumber
-            card.grade = result.grade
+            card.grade = result.grade.isEmpty ? nil : result.grade
             card.population = result.population
             card.populationHigher = result.populationHigher
             card.psaImageFrontPath = result.frontImagePath
@@ -255,7 +290,7 @@ class AddCardEntryViewModel: ObservableObject {
                             number: result.cardNumber,
                             isPSA: true,
                             psaCertNumber: certNumber,
-                            grade: result.grade,
+                            grade: result.grade.isEmpty ? nil : result.grade,
                             population: result.population,
                             populationHigher: result.populationHigher,
                             psaImageFrontPath: result.frontImagePath,
@@ -315,7 +350,8 @@ class AddCardEntryViewModel: ObservableObject {
             note: note.isEmpty ? nil : note,
             createdAt: Date(),
             updatedAt: Date(),
-            askingPrice: nil
+            askingPrice: nil,
+            language: language
         )
         persistence.createEntry(from: item)
         isSaved = true

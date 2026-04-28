@@ -2,7 +2,7 @@ import Foundation
 
 struct CSVExportService {
     static func export(entries: [CardEntryItem]) -> URL? {
-        var csv = "昵称,卡名,系列,编号,是否评级,评级,Pop,年份,变体,购买日期,购买价格(¥),出售日期,出售价格(¥),盈亏(¥),备注,正面图片路径,背面图片路径\n"
+        var csv = "昵称,卡名,系列,编号,是否评级,评级公司,评级分数,评级描述,Pop,年份,变体,购买日期,购买价格(¥),出售日期,出售价格(¥),盈亏(¥),备注,正面图片路径,背面图片路径\n"
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
@@ -14,7 +14,9 @@ struct CSVExportService {
                 let set = escapeCSV(card.set ?? "")
                 let number = escapeCSV(card.number ?? "")
                 let isPSA = card.isPSA ? "是" : "否"
-                let grade = card.gradeDescription ?? (card.grade.map { "PSA \($0)" } ?? "")
+                let gradingCompany = card.isPSA ? card.gradingCompany : ""
+                let grade = card.grade ?? ""
+                let gradeDescription = escapeCSV(card.gradeDescription ?? "")
                 let pop = card.population.map { "\($0)" } ?? ""
                 let year = escapeCSV(card.year ?? "")
                 let variety = escapeCSV(card.variety ?? "")
@@ -27,7 +29,7 @@ struct CSVExportService {
                 let frontImage = escapeCSV(card.psaImageFrontPath ?? card.localImagePath ?? "")
                 let backImage = escapeCSV(card.psaImageBackPath ?? "")
 
-                csv += "\(nickname),\(name),\(set),\(number),\(isPSA),\(grade),\(pop),\(year),\(variety),\(purchaseDate),\(purchasePrice),\(sellDate),\(sellPrice),\(profit),\(notes),\(frontImage),\(backImage)\n"
+                csv += "\(nickname),\(name),\(set),\(number),\(isPSA),\(gradingCompany),\(grade),\(gradeDescription),\(pop),\(year),\(variety),\(purchaseDate),\(purchasePrice),\(sellDate),\(sellPrice),\(profit),\(notes),\(frontImage),\(backImage)\n"
             }
         }
 

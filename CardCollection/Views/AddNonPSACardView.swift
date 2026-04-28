@@ -52,6 +52,11 @@ struct AddNonPSACardView: View {
     private var nicknameSection: some View {
         Section {
             TextField("昵称（可选）", text: $viewModel.nickname)
+            Picker("语言版本", selection: $viewModel.language) {
+                ForEach(CardLanguage.allCases, id: \.rawValue) { lang in
+                    Text(lang.rawValue).tag(lang.rawValue)
+                }
+            }
         } header: {
             Label("条目名称", systemImage: "tag")
         }
@@ -109,7 +114,12 @@ struct AddNonPSACardView: View {
 
     private var imagePickerButton: some View {
         PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-            Label("选择照片", systemImage: "plus.circle.fill")
+            Image(systemName: "photo.badge.plus")
+                .font(.title3)
+                .foregroundStyle(.orange)
+                .frame(width: 44, height: 44)
+                .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
 

@@ -23,6 +23,7 @@ class CardListViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var sortOption: SortOption = .createdAt
     @Published var filter: CardFilter = .all
+    @Published var languageFilter: String? = nil
     @Published var selectedTab: Int = 0
 
     private let persistence = PersistenceController.shared
@@ -65,6 +66,9 @@ class CardListViewModel: ObservableObject {
             filtered = filtered.filter { $0.hasPSA }
         case .raw:
             filtered = filtered.filter { !$0.hasPSA }
+        }
+        if let langFilter = languageFilter {
+            filtered = filtered.filter { $0.language == langFilter }
         }
         return applySorting(filtered)
     }

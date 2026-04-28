@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct CardListView: View {
     @StateObject private var viewModel = CardListViewModel()
+    @ObservedObject private var preferences = UserPreferences.shared
     @State private var showingAddPSA = false
     @State private var showingAddNonPSA = false
     @State private var showingScanner = false
@@ -10,7 +11,6 @@ struct CardListView: View {
     @State private var refreshTrigger = false
     @State private var csvExportURL: URL?
     @State private var showCSVShareSheet = false
-    @State private var showSortSheet = false
     @State private var showShareView = false
     @State private var showImportPicker = false
     @State private var columns = [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 12)]
@@ -36,43 +36,14 @@ struct CardListView: View {
         .navigationTitle("我的卡牌")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button { showingAddPSA = true } label: {
-                        Label("添加评级卡", systemImage: "shield.checkered")
-                    }
-                    Button { showingAddNonPSA = true } label: {
-                        Label("添加裸卡", systemImage: "rectangle.on.rectangle.angled")
-                    }
-                    Button { showingScanner = true } label: {
-                        Label("扫码添加", systemImage: "qrcode.viewfinder")
-                    }
-                    Divider()
-                    Button { showSortSheet = true } label: {
-                        Label("排序方式", systemImage: "arrow.up.arrow.down")
-                    }
-                    Button { showShareView = true } label: {
-                        Label("分享卡牌", systemImage: "square.and.arrow.up")
-                    }
-                    Divider()
-                    Button { exportData() } label: {
-                        Label("导出数据", systemImage: "square.and.arrow.up")
-                    }
-                    Button { showImportPicker = true } label: {
-                        Label("导入数据", systemImage: "square.and.arrow.down")
-                    }
-                } label: {
-                    Image(systemName: "plus.circle.fill").font(.title3)
-                }
+                priceToggleBtn
             }
-        }
-        .confirmationDialog("排序方式", isPresented: $showSortSheet, titleVisibility: .visible) {
-            ForEach(SortOption.allCases, id: \.self) { option in
-                Button(option.rawValue) {
-                    viewModel.sortOption = option
-                    viewModel.loadEntries()
-                }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                sortMenuBtn
             }
-            Button("取消", role: .cancel) {}
+            ToolbarItem(placement: .navigationBarTrailing) {
+                addMenuBtn
+            }
         }
         .sheet(isPresented: $showingAddPSA, onDismiss: { refreshTrigger.toggle() }) {
             NavigationStack { AddPSACardView() }
@@ -92,7 +63,7 @@ struct CardListView: View {
         .sheet(isPresented: $showShareView) {
             NavigationStack { ShareCardView(entries: viewModel.entries + viewModel.soldEntries) }
         }
-        .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.json, .commaSeparatedText], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $showImportPicker, allowedContentTypes: [.json, .commaSeparatedText, .data], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls):
                 if let url = urls.first {
@@ -104,30 +75,122 @@ struct CardListView: View {
         }
         .onChange(of: viewModel.searchText) { _, _ in viewModel.loadEntries() }
         .onChange(of: viewModel.filter) { _, _ in viewModel.loadEntries() }
+        .onChange(of: viewModel.languageFilter) { _, _ in viewModel.loadEntries() }
         .onChange(of: refreshTrigger) { _, _ in viewModel.loadEntries() }
         .onAppear { viewModel.loadEntries() }
     }
 
-    private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(CardFilter.allCases, id: \.self) { f in
-                    Button {
-                        viewModel.filter = f
-                    } label: {
-                        Text(f.rawValue)
-                            .font(.subheadline.weight(viewModel.filter == f ? .bold : .regular))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(viewModel.filter == f ? Color.orange : Color(.systemBackground))
-                            .foregroundStyle(viewModel.filter == f ? .white : .secondary)
-                            .clipShape(Capsule())
+    private var priceToggleBtn: some View {
+        Button {
+            preferences.hidePrices.toggle()
+        } label: {
+            Image(systemName: preferences.hidePrices ? "eye.slash" : "eye")
+                .font(.title3)
+                .foregroundStyle(preferences.hidePrices ? Color.secondary : Color.blue)
+        }
+    }
+
+    private var sortMenuBtn: some View {
+        Menu {
+            ForEach(SortOption.allCases, id: \.self) { option in
+                Button {
+                    viewModel.sortOption = option
+                    viewModel.loadEntries()
+                } label: {
+                    HStack {
+                        Text(option.rawValue)
+                        if viewModel.sortOption == option {
+                            Image(systemName: "checkmark")
+                        }
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+        } label: {
+            Image(systemName: "arrow.up.arrow.down.circle")
+                .font(.title3)
+                .foregroundStyle(viewModel.sortOption != .createdAt ? Color.orange : Color.blue)
         }
+    }
+
+    private var addMenuBtn: some View {
+        Menu {
+            Button { showingAddPSA = true } label: {
+                Label("添加评级卡", systemImage: "shield.checkered")
+            }
+            Button { showingAddNonPSA = true } label: {
+                Label("添加裸卡", systemImage: "rectangle.on.rectangle.angled")
+            }
+            Button { showingScanner = true } label: {
+                Label("扫码添加", systemImage: "qrcode.viewfinder")
+            }
+            Divider()
+            Button { showShareView = true } label: {
+                Label("分享卡牌", systemImage: "square.and.arrow.up")
+            }
+            Divider()
+            Button { exportData() } label: {
+                Label("导出数据", systemImage: "square.and.arrow.up")
+            }
+            Button { showImportPicker = true } label: {
+                Label("导入数据", systemImage: "square.and.arrow.down")
+            }
+        } label: {
+            Image(systemName: "plus.circle.fill").font(.title3)
+        }
+    }
+
+    private var filterBar: some View {
+        VStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(CardFilter.allCases, id: \.self) { f in
+                        Button {
+                            viewModel.filter = f
+                        } label: {
+                            Text(f.rawValue)
+                                .font(.subheadline.weight(viewModel.filter == f ? .bold : .regular))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 6)
+                                .background(viewModel.filter == f ? Color.orange : Color(.systemBackground))
+                                .foregroundStyle(viewModel.filter == f ? .white : .secondary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button {
+                        viewModel.languageFilter = nil
+                    } label: {
+                        Text("全部语言")
+                            .font(.caption.weight(viewModel.languageFilter == nil ? .bold : .regular))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(viewModel.languageFilter == nil ? Color.blue : Color(.systemBackground))
+                            .foregroundStyle(viewModel.languageFilter == nil ? .white : .secondary)
+                            .clipShape(Capsule())
+                    }
+                    ForEach(CardLanguage.allCases, id: \.rawValue) { lang in
+                        Button {
+                            viewModel.languageFilter = lang.rawValue
+                        } label: {
+                            Text(lang.rawValue)
+                                .font(.caption.weight(viewModel.languageFilter == lang.rawValue ? .bold : .regular))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(viewModel.languageFilter == lang.rawValue ? Color.blue : Color(.systemBackground))
+                                .foregroundStyle(viewModel.languageFilter == lang.rawValue ? .white : .secondary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .padding(.vertical, 8)
         .background(Color(.systemGroupedBackground))
     }
 
@@ -187,7 +250,7 @@ struct CardListView: View {
     private var cardGrid: some View {
         LazyVGrid(columns: columns, spacing: 12) {
             ForEach(viewModel.activeEntries) { entry in
-                EntryGridItem(entry: entry)
+                EntryGridItem(entry: entry, hidePrice: preferences.hidePrices)
                     .onTapGesture { selectedEntry = entry }
                     .contextMenu {
                         Button(role: .destructive) {
@@ -223,6 +286,7 @@ struct CardListView: View {
 
 struct EntryGridItem: View {
     let entry: CardEntryItem
+    var hidePrice: Bool = false
 
     private var firstImagePath: String? {
         guard let firstCard = entry.subcards.first else { return nil }
@@ -299,17 +363,35 @@ struct EntryGridItem: View {
             }
 
             HStack {
-                Text(entry.hasPSA ? "评级" : "裸卡")
+                if entry.hasPSA, let firstCard = entry.primaryCard {
+                    Text(firstCard.gradingCompany)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(firstCard.gradingCompanyEnum.displayColor.opacity(0.15))
+                        .foregroundStyle(firstCard.gradingCompanyEnum.displayColor)
+                        .clipShape(Capsule())
+                } else {
+                    Text("裸卡")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple.opacity(0.15))
+                        .foregroundStyle(.purple)
+                        .clipShape(Capsule())
+                }
+
+                Text(entry.language)
                     .font(.caption2.weight(.bold))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(entry.hasPSA ? Color.orange.opacity(0.15) : Color.purple.opacity(0.15))
-                    .foregroundStyle(entry.hasPSA ? .orange : .purple)
+                    .background(Color.blue.opacity(0.15))
+                    .foregroundStyle(.blue)
                     .clipShape(Capsule())
 
                 Spacer()
 
-                if !entry.isSold, let price = entry.purchasePrice {
+                if !hidePrice, !entry.isSold, let price = entry.purchasePrice {
                     Text("¥\(String(format: "%.0f", price))")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)

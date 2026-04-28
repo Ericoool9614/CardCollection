@@ -25,6 +25,7 @@
 		589DF97B17948DB4A0F66B7B /* PriceEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7168E9F71603F4640A12A4E0 /* PriceEntry.swift */; };
 		6C67B745838324E46EDE8EC3 /* ScannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797A483B1C7BCDE0682ADD75 /* ScannerService.swift */; };
 		7548AF602E2AD07B89A5EF28 /* EditCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C9869674CB426CD3420DCD /* EditCardView.swift */; };
+		8A15BD7638ED3BDDC9F1B7EC /* UserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A4954B73B28722F28E4DC /* UserPreferences.swift */; };
 		8AE1B2126086B2EACE888111 /* CardCollectionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC8900334E0278FFA2C183C /* CardCollectionApp.swift */; };
 		98476DBF75FCE1645376F89B /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3022D291AA45090E2FFB323E /* DashboardViewModel.swift */; };
 		A00ADD709F7FB2C4A8A8CA39 /* PriceHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCED833F54EE8E1519803EFF /* PriceHistoryService.swift */; };
@@ -81,6 +82,7 @@
 		DCC8900334E0278FFA2C183C /* CardCollectionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardCollectionApp.swift; sourceTree = "<group>"; };
 		E41EC379DEEBF30D788416AD /* PriceHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistoryView.swift; sourceTree = "<group>"; };
 		E49322D4544E0B1969B01B6F /* EditCardEntryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditCardEntryViewModel.swift; sourceTree = "<group>"; };
+		E81A4954B73B28722F28E4DC /* UserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferences.swift; sourceTree = "<group>"; };
 		EF664763910C06AF56F4A7E9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FADFD3FF4132893F26133370 /* PSAService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PSAService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -96,6 +98,7 @@
 				CCED833F54EE8E1519803EFF /* PriceHistoryService.swift */,
 				FADFD3FF4132893F26133370 /* PSAService.swift */,
 				797A483B1C7BCDE0682ADD75 /* ScannerService.swift */,
+				E81A4954B73B28722F28E4DC /* UserPreferences.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -322,6 +325,7 @@
 				AFA3F026BAB567EE600E0E42 /* ScanPSACardView.swift in Sources */,
 				6C67B745838324E46EDE8EC3 /* ScannerService.swift in Sources */,
 				2051DE1938C4DEDBF1FE860B /* ShareCardView.swift in Sources */,
+				8A15BD7638ED3BDDC9F1B7EC /* UserPreferences.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -349,14 +353,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FS2YBVWLM8;
 				INFOPLIST_FILE = CardCollection/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "卡库";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to scan QR codes on PSA cards";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "需要访问相册以保存卡牌图片";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问相册以保存卡牌图片";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -380,14 +384,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FS2YBVWLM8;
 				INFOPLIST_FILE = CardCollection/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "卡库";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to scan QR codes on PSA cards";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "需要访问相册以保存卡牌图片";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "需要访问相册以保存卡牌图片";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

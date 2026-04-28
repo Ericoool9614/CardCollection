@@ -14,7 +14,8 @@ actor ArchiveExportService {
                 "purchasePrice": entry.purchasePrice as Any,
                 "sellPrice": entry.sellPrice as Any,
                 "note": entry.note as Any,
-                "askingPrice": entry.askingPrice as Any
+                "askingPrice": entry.askingPrice as Any,
+                "language": entry.language
             ]
 
             if let d = entry.purchaseDate {
@@ -46,7 +47,8 @@ actor ArchiveExportService {
                     "gradeDescription": card.gradeDescription as Any,
                     "category": card.category as Any,
                     "labelType": card.labelType as Any,
-                    "sortOrder": card.sortOrder
+                    "sortOrder": card.sortOrder,
+                    "gradingCompany": card.gradingCompany
                 ]
 
                 if let path = card.psaImageFrontPath, !path.isEmpty {
@@ -80,7 +82,7 @@ actor ArchiveExportService {
 
         do {
             let jsonData = try JSONSerialization.data(withJSONObject: jsonEntries, options: .prettyPrinted)
-            let archiveName = "卡牌收藏_导出_\(formatDateForFilename(Date())).ccdata"
+            let archiveName = "卡牌收藏_导出_\(formatDateForFilename(Date())).json"
             let archiveURL = FileManager.default.temporaryDirectory.appendingPathComponent(archiveName)
             try jsonData.write(to: archiveURL)
             return archiveURL
@@ -163,7 +165,7 @@ actor ArchiveImportService {
                         number: subDict["number"] as? String,
                         isPSA: subDict["isPSA"] as? Bool ?? false,
                         psaCertNumber: subDict["psaCertNumber"] as? String,
-                        grade: subDict["grade"] as? Int,
+                        grade: subDict["grade"] as? String,
                         population: subDict["population"] as? Int,
                         populationHigher: subDict["populationHigher"] as? Int,
                         psaImageFrontPath: frontPath,
@@ -174,7 +176,8 @@ actor ArchiveImportService {
                         gradeDescription: subDict["gradeDescription"] as? String,
                         category: subDict["category"] as? String,
                         labelType: subDict["labelType"] as? String,
-                        sortOrder: subDict["sortOrder"] as? Int ?? 0
+                        sortOrder: subDict["sortOrder"] as? Int ?? 0,
+                        gradingCompany: subDict["gradingCompany"] as? String ?? GradingCompany.default.rawValue
                     )
                     subcards.append(subcard)
                 }
@@ -191,7 +194,8 @@ actor ArchiveImportService {
                 note: entryDict["note"] as? String,
                 createdAt: (entryDict["createdAt"] as? String).flatMap { isoFormatter.date(from: $0) } ?? Date(),
                 updatedAt: (entryDict["updatedAt"] as? String).flatMap { isoFormatter.date(from: $0) } ?? Date(),
-                askingPrice: entryDict["askingPrice"] as? Double
+                askingPrice: entryDict["askingPrice"] as? Double,
+                language: entryDict["language"] as? String ?? CardLanguage.default.rawValue
             )
             entries.append(entry)
         }

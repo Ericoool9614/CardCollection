@@ -227,26 +227,27 @@ actor PSAService {
         }
     }
 
-    private func parseGrade(from gradeString: String) -> Int {
-        let gradeMap: [String: Int] = [
-            "PR 1": 1, "FR 1.5": 2, "GOOD 2": 2, "GOOD 2.5": 2,
-            "VG 3": 3, "VG 3.5": 3, "VG-EX 4": 4, "VG-EX 4.5": 4,
-            "EX 5": 5, "EX 5.5": 5, "EXMT 6": 6, "NM 7": 7,
-            "NM 7.5": 7, "NM-MT 8": 8, "MINT 9": 9, "GEM MT 10": 10
+    private func parseGrade(from gradeString: String) -> String {
+        let gradeMap: [String: String] = [
+            "PR 1": "1", "FR 1.5": "2", "GOOD 2": "2", "GOOD 2.5": "2",
+            "VG 3": "3", "VG 3.5": "3", "VG-EX 4": "4", "VG-EX 4.5": "4",
+            "EX 5": "5", "EX 5.5": "5", "EXMT 6": "6", "NM 7": "7",
+            "NM 7.5": "7", "NM-MT 8": "8", "MINT 9": "9", "GEM MT 10": "10"
         ]
         if let grade = gradeMap[gradeString] {
             return grade
         }
-        if let number = gradeString.components(separatedBy: CharacterSet.decimalDigits.inverted).joined().first.flatMap({ Int(String($0)) }) {
-            return number
+        let digits = gradeString.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        if let first = digits.first {
+            return String(first)
         }
-        return 0
+        return ""
     }
 }
 
 struct PSACardResult: Sendable {
     let certNumber: String
-    let grade: Int
+    let grade: String
     let population: Int
     let populationHigher: Int
     let frontImagePath: String?

@@ -27,6 +27,10 @@ final class PersistenceController: ObservableObject, Sendable {
                 let storeURL = self.container.persistentStoreDescriptions.first?.url
                 if let url = storeURL {
                     try? FileManager.default.removeItem(at: url)
+                    let shmURL = url.deletingPathExtension().appendingPathExtension("sqlite-shm")
+                    let walURL = url.deletingPathExtension().appendingPathExtension("sqlite-wal")
+                    try? FileManager.default.removeItem(at: shmURL)
+                    try? FileManager.default.removeItem(at: walURL)
                     self.container.loadPersistentStores { _, retryError in
                         if let retryError = retryError as NSError? {
                             fatalError("Unresolved error after reset \(retryError), \(retryError.userInfo)")
